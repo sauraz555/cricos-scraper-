@@ -1,0 +1,215 @@
+﻿db_course_id,old_cricos_course_code,new_cricos_course_code,cricos_provider_code,course_name
+2355,100033,0100033,00197D,Diploma of Business
+5424,100123,0100123,03763K,Bachelor of Business
+497,100135,0100135,00109J,Master of Cyber Security
+3271,100189,0100189,00917K,Bachelor of Speech Pathology
+3272,100190,0100190,00917K,Bachelor of Speech Pathology (Honours)
+3,100201,0100201,00004G,Master of Psychology (Clinical)/Doctor of Philosophy
+4,100202,0100202,00004G,Master of Psychology (Educational and Developmental)/Doctor of Philosophy
+3901,100246,0100246,01595D,Master of Social Work by Research
+498,100265,0100265,00109J,Master of Materials Science and Engineering
+950,100300,0100300,00113B,Master of Film and Television
+951,100303,0100303,00113B,Bachelor of Marine Science
+952,100304,0100304,00113B,Bachelor of Artificial Intelligence
+953,100305,0100305,00113B,Master of Applied Artificial Intelligence
+954,100306,0100306,00113B,Master of Applied Artificial Intelligence (Professional)
+284,100320,0100320,00103D,Master of Teaching (Early Childhood)
+5428,100347,0100347,03778C,Certificate IV in Ageing Support
+3761,100351,0100351,01241G,Diploma of Hotel Management
+3902,100425,0100425,01595D,Diploma in Criminology and Justice
+3081,100439,0100439,00586B,Graduate Certificate in Strategic Communication
+3082,100440,0100440,00586B,Graduate Diploma of Strategic Communication
+2884,100444,0100444,00300K,Accelerated International Masters Qualifying Program
+1188,100451,0100451,00117J,Diploma of Information Technology [Pathway]
+6034,100461,0100461,03567C,Master of Engineering (Civil: Structural)
+6035,100462,0100462,03567C,Master of Engineering (Electrical Systems)
+6036,100463,0100463,03567C,Master of Engineering (Mechanical)
+499,100471,0100471,00109J,Master of Environmental Law
+500,100472,0100472,00109J,Bachelor of Mathematics (Advanced)
+501,100473,0100473,00109J,Bachelor of Science (Advanced)
+502,100474,0100474,00109J,Bachelor of Psychological Science (Advanced)
+503,100479,0100479,00109J,Bachelor of Coastal and Marine Science
+4149,100485,0100485,02491D,Graduate Certificate in Business
+4150,100486,0100486,02491D,Graduate Diploma of Marketing
+4151,100487,0100487,02491D,Master of Marketing
+4152,100488,0100488,02491D,Graduate Certificate in Financial Technology Management
+4153,100489,0100489,02491D,Graduate Diploma of Financial Technology Management
+2390,100504,0100504,00212K,Bachelor of Business (Sport Management)
+3610,100505,0100505,01032F,Master of Business Administration
+5403,100516,0100516,03732F,Diploma of Business
+5404,100517,0100517,03732F,Diploma of Commerce
+2611,100526,0100526,00213J,English for Academic Purposes (EAP) 1 Standard
+2612,100527,0100527,00213J,English for Academic Purposes (EAP) 1 Extended
+2613,100528,0100528,00213J,English for Academic Purposes (EAP) 2 Standard
+2614,100529,0100529,00213J,English for Academic Purposes (EAP) 2 Extended
+2615,100530,0100530,00213J,English for Academic Purposes (EAP) 3 Standard
+2616,100531,0100531,00213J,English for Academic Purposes (EAP) 3 Extended
+4466,100538,0100538,03047E,Bachelor of Business
+955,100550,0100550,00113B,Bachelor of Laws / Bachelor of Cyber Security
+4733,100551,0100551,03389E,Bachelor of Business Information Systems
+4734,100552,0100552,03389E,Diploma of Business Information Systems
+3083,100553,0100553,00586B,"Graduate Diploma of Tourism, Environmental and Cultural Heritage"
+3084,100554,0100554,00586B,"Graduate Certificate in Tourism, Environmental and Cultural Heritage"
+285,100637,0100637,00103D,Master of Engineering Technology (Renewable Energy and Electrical Power Systems)
+286,100638,0100638,00103D,Master of Engineering Technology (Mechatronic Systems Engineering)
+287,100639,0100639,00103D,Bachelor of Engineering (Electrical and Information Engineering) (Honours)
+288,100640,0100640,00103D,Master of Engineering Project Management
+290,100646,0100646,00103D,Bachelor of Criminology and Criminal Justice
+3903,100647,0100647,01595D,Bachelor of Criminology and Justice (Honours)
+3904,100676,0100676,01595D,Bachelor of Computer Science
+3273,100687,0100687,00917K,Bachelor of Construction Management (Honours)
+956,100730,0100730,00113B,Bachelor of Business/Bachelor of Arts
+2885,100739,0100739,00300K,Diploma of Business Studies
+2886,100740,0100740,00300K,Diploma of Information Technology
+3085,100744,0100744,00586B,Diploma of Fine Arts
+3086,100745,0100745,00586B,Diploma of Music
+3087,100746,0100746,00586B,Diploma of Arts
+5,100749,0100749,00004G,Diploma in Liberal Arts
+505,100759,0100759,00109J,Bachelor of Visual Communication Design
+506,100760,0100760,00109J,Bachelor of Development Studies / Bachelor of Global Indigenous Studies
+507,100761,0100761,00109J,Master of Business Psychology
+3905,100794,0100794,01595D,Bachelor of Engineering (Electrical and Electronic)(Honours)
+3906,100795,0100795,01595D,Bachelor of Engineering (Mechatronic) (Honours)
+3088,100808,0100808,00586B,Foundation Studies Program (Standard)
+3089,100809,0100809,00586B,Foundation Studies Program (Fast Track)
+957,100819,0100819,00113B,Bachelor of Commerce / Bachelor of Arts
+958,100820,0100820,00113B,Bachelor of Marketing (Psychology)
+291,100899,0100899,00103D,Graduate Certificate in Education Studies
+292,100900,0100900,00103D,Graduate Diploma of Education Studies
+4735,100910,0100910,03389E,Bachelor of Nursing
+1189,100968,0100968,00117J,Master of Philosophy (Indigenous)
+4043,100979,0100979,01774A,English for Academic Purposes (EAP)
+2617,100982,0100982,00213J,Bachelor of Biomedical Science / Bachelor of Mathematics
+200,101014,0101014,00005F,Bachelor of Agriculture
+202,101018,0101018,00005F,Graduate Certificate in Fish Conservation and Management
+204,101020,0101020,00005F,Bachelor of Communication
+2887,101026,0101026,00300K,Bachelor of Arts
+2888,101027,0101027,00300K,Bachelor of Education in Early Childhood Teaching (Birth-12 Years)
+2889,101028,0101028,00300K,Bachelor of Humanitarian Aid and Development
+2890,101029,0101029,00300K,Diploma of Health Science
+2891,101030,0101030,00300K,Diploma of Social Care
+2892,101031,0101031,00300K,Diploma of Health Studies
+2893,101036,0101036,00300K,Bachelor of Health Science
+2894,101041,0101041,00300K,Bachelor of Health Science/Master of Occupational Therapy
+2895,101042,0101042,00300K,Bachelor of Health Science/Master of Speech and Language Therapy
+2896,101043,0101043,00300K,Bachelor of Health Services Management
+2897,101044,0101044,00300K,Bachelor of Public Health
+2898,101045,0101045,00300K,Bachelor of Science Honours
+2899,101046,0101046,00300K,Bachelor of Laws Honours
+2900,101047,0101047,00300K,Bachelor of Digital Enterprise
+2901,101048,0101048,00300K,Graduate Certificate of Public Health
+2902,101050,0101050,00300K,Graduate Diploma of Public Health
+2903,101051,0101051,00300K,Master of Public Health
+2904,101052,0101052,00300K,Graduate Diploma of Health Research
+2905,101053,0101053,00300K,Master of Health Research
+1190,101080,0101080,00117J,"Bachelor of Tourism, Hospitality and Events"
+959,101098,0101098,00113B,Bachelor of Nutrition Science (Dietetics Pathway)
+3762,101136,0101136,01241G,Diploma of Health
+5067,101152,0101152,03505F,"General English (Pre-Intermediate, Intermediate, Upper Intermediate)"
+4905,101215,0101215,03430J,Diploma of Aviation (Aviation Management)
+6,101322,0101322,00004G,Bachelor of Nutrition Science (Honours)
+8,101324,0101324,00004G,Bachelor of Exercise and Sports Science/Bachelor of Nutrition Science
+3907,101332,0101332,01595D,Bachelor of Business/Bachelor of Creative Industries
+2067,101340,0101340,00124K,Graduate Diploma in Early Childhood Education
+4222,101351,0101351,02672K,General English Course (Beginner Upper Intermediate)
+4223,101352,0101352,02672K,IELTS Preparation Course
+4224,101353,0101353,02672K,English for Academic Purposes Course (EAP)
+4225,101354,0101354,02672K,Pronunciation in Context Course
+4226,101355,0101355,02672K,English for Business Course (EB)
+4227,101356,0101356,02672K,Cambridge C1 Advanced Preparation Course
+4228,101357,0101357,02672K,English for Vocational Studies Course (EVS)
+4229,101362,0101362,02672K,Cambridge B2 First Preparation Course
+4230,101363,0101363,02672K,Cambridge B1 Preliminary Course
+4231,101364,0101364,02672K,Cambridge A2 Key Preparation Course (KET)
+960,101372,0101372,00113B,Bachelor of Arts/Master of International Relations
+2906,101373,0101373,00300K,Bachelor of Arts Honours
+2908,101375,0101375,00300K,Bachelor of Medical Laboratory Science
+2909,101376,0101376,00300K,Bachelor of Software Engineering Honours
+2910,101377,0101377,00300K,Diploma of Digital Enterprise
+2912,101380,0101380,00300K,Master of Social Work (Qualifying)
+961,101383,0101383,00113B,Graduate Diploma of Psychology (Advanced)
+1191,101385,0101385,00117J,Bachelor of Commerce
+962,101387,0101387,00113B,Graduate Diploma of Construction Management
+4736,101388,0101388,03389E,Master of Business Administration (Sports Management) (Advanced)
+3763,101393,0101393,01241G,Master of Business in Global Hotel Leadership
+3764,101394,0101394,01241G,Graduate Diploma of Business in Global Hotel Leadership
+3765,101395,0101395,01241G,Graduate Certificate of Business in Global Hotel Leadership
+508,101396,0101396,00109J,Master of Business Administration (Global) / Master of Science (Data Analytics)
+509,101397,0101397,00109J,Bachelor of Arts (Honours)
+5279,101416,0101416,03636F,Certificate IV in Automotive Mechanical Diagnosis
+1326,101472,0101472,00120C,"Master of Criminology, Justice and Regulation"
+1327,101473,0101473,00120C,Master of National Security Policy
+1328,101474,0101474,00120C,Master of Diplomacy
+1329,101475,0101475,00120C,Master of International Law and Diplomacy
+1330,101476,0101476,00120C,Master of Science in Astronomy and Astrophysics
+1331,101477,0101477,00120C,Master of Science (Advanced) in Astronomy and Astrophysics
+1332,101480,0101480,00120C,Master of Science in Earth Sciences
+1333,101481,0101481,00120C,Master of Science in Theoretical Physics
+1334,101482,0101482,00120C,Master of Science (Advanced) in Theoretical Physics
+1335,101483,0101483,00120C,Master of Science in Agricultural Innovation
+1336,101484,0101484,00120C,Master of Science (Advanced) in Agricultural Innovation
+4983,101499,0101499,03465J,General English
+4985,101501,0101501,03465J,English for Academic Purposes
+4362,101510,0101510,02804C,Bachelor of Human Services
+4363,101511,0101511,02804C,Associate Degree in Human Services
+4364,101512,0101512,02804C,Diploma in Human Services
+4063,101547,0101547,01796F,Diploma of Hospitality Management
+2618,101552,0101552,00213J,Graduate Certificate in Business Analysis
+2619,101553,0101553,00213J,Graduate Certificate in Computer Science
+2620,101554,0101554,00213J,Graduate Certificate in Cyber Security and Networks
+2621,101555,0101555,00213J,Graduate Certificate in Information Technology
+2622,101556,0101556,00213J,Graduate Diploma in Information Technology
+5035,101574,0101574,03474G,Certificate II in Security Operations
+5036,101575,0101575,03474G,Certificate III in Security Operations
+2623,101676,0101676,00213J,Bachelor of Paramedic Science
+2913,101689,0101689,00300K,Master of Arts
+2914,101690,0101690,00300K,Master of Medical Laboratory Science
+2915,101691,0101691,00300K,Master of Information Technology (Cyber Security)
+2916,101692,0101692,00300K,Master of Information Technology (Information Systems and Data Science)
+2917,101693,0101693,00300K,Master of Information Technology (Software Engineering)
+3766,101720,0101720,01241G,"Master of Engineering Management, Master of Business Administration"
+3767,101721,0101721,01241G,Master of Information Technology
+3274,101770,0101770,00917K,Graduate Diploma in Chinese Medicine (exit only)
+3275,101771,0101771,00917K,Graduate Certificate in Chinese Medicine (exit only)
+3276,101772,0101772,00917K,Bachelor of Psychological Studies (exit only)
+3278,101774,0101774,00917K,Master of Educational Studies (exit only)
+3279,101775,0101775,00917K,Graduate Diploma in Educational Studies (Secondary) (exit only)
+3280,101776,0101776,00917K,Graduate Certificate in Educational Studies (Secondary) (exit only)
+3283,101782,0101782,00917K,Master of Laws (2)
+3284,101783,0101783,00917K,Master of Artificial Intelligence
+3285,101784,0101784,00917K,Graduate Diploma in Artificial Intelligence (Exit only)
+3286,101785,0101785,00917K,Graduate Certificate in Artificial Intelligence (Exit only)
+4737,101786,0101786,03389E,General English (Elementary to Advanced)
+3287,101790,0101790,00917K,Bachelor of Physiotherapy
+3288,101791,0101791,00917K,Bachelor of Physiotherapy (Honours)
+3289,101793,0101793,00917K,Bachelor of Podiatric Medicine (Honours)
+3290,101794,0101794,00917K,Graduate Certificate in Public Health
+3291,101795,0101795,00917K,Graduate Diploma in Aged Care Management
+3292,101796,0101796,00917K,Graduate Diploma in Health Service Management
+3293,101797,0101797,00917K,Graduate Diploma in Digital Health
+3294,101798,0101798,00917K,Graduate Diploma in Occupational Health and Safety
+963,101801,0101801,00113B,Bachelor of Human Resource Management (Psychology)
+964,101803,0101803,00113B,Master of Infrastructure Engineering and Management (Professional)
+965,101804,0101804,00113B,Master of Energy System Management (Professional)
+3090,101853,0101853,00586B,English Language Program
+3611,101871,0101871,01032F,Master of Laws (Coursework)
+3908,101883,0101883,01595D,Bachelor of Business/Bachelor of Design
+3909,101885,0101885,01595D,Bachelor of Business/Bachelor of Criminology and Justice
+3910,101886,0101886,01595D,Bachelor of Business/Bachelor of Communication
+3295,101997,0101997,00917K,Juris Doctor
+10,102075,0102075,00004G,Bachelor of Education (Primary and Secondary)
+2919,102122,0102122,00300K,Bachelor of Business
+1192,102134,0102134,00117J,Bachelor of Laws
+4154,102137,0102137,02491D,Master of Accounting Intelligence
+4155,102138,0102138,02491D,Master of Big Data Auditing
+4156,102139,0102139,02491D,Master of Taxation (with Data Analysis and Artificial Intelligence)
+4157,102140,0102140,02491D,Master of Applied Financial Technology and Blockchain
+2356,102143,0102143,00197D,Certificate III in Individual Support
+2624,102144,0102144,00213J,Bachelor of Urban Development (Honours)/Bachelor of Science
+293,102153,0102153,00103D,Graduate Certificate in Social and Community Services
+3768,102158,0102158,01241G,Bachelor of Engineering Systems (Honours)
+3769,102160,0102160,01241G,Bachelor of Exercise Science and Psychological Science
+3770,102161,0102161,01241G,Bachelor of Biomedical Science
+5280,102173,0102173,03636F,Diploma of Automotive Management
+5470,102178,0102178,03844J,Bachelor of Business
+5471,102179,0102179,03844J,Bachelor of Enterprise Management Systems

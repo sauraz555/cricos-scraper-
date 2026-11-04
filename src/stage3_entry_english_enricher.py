@@ -482,61 +482,37 @@ async def run_stage3():
     now_iso = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # ------------------------------------------------------------------
-    # LAYER A: Parse existing verified HTML in orig_courses & enriched_courses
+    # LAYER A: Parse existing verified HTML in master_courses & enriched_courses
     # ------------------------------------------------------------------
-    print("Layer A: Extracting IELTS/PTE/TOEFL from existing course entry_requirements HTML...")
-    all_orig_courses = [dict(r) for r in conn.execute("SELECT * FROM orig_courses")]
-    ec_map = {r["course_id"]: dict(r) for r in conn.execute("SELECT * FROM enriched_courses")}
+    print("Layer A: Extracting IELTS/PTE/TOEFL from verified course entry_requirements HTML...")
+    all_master_courses = [dict(r) for r in conn.execute("SELECT * FROM master_courses")]
+    ec_map = {r["cricos_course_code"]: dict(r) for r in conn.execute("SELECT * FROM enriched_courses")}
 
     layer_a_updates = []
-    for oc in all_orig_courses:
-        cid = int(oc["id"])
-        ec = ec_map.get(cid)
-        combined_html = (oc.get("entry_requirements") or "") + "\n" + ((ec or {}).get("entry_requirements") or "")
+    for mc in all_master_courses:
+        ccode = mc["cricos_course_code"]
+        ec = ec_map.get(ccode)
+        if ec and ec.get("english_requirements"):
+            continue
+        combined_html = (mc.get("db_entry_requirements") or "") + "\n" + ((ec or {}).get("entry_requirements") or "")
         if not combined_html.strip():
             continue
         plain = clean_html_to_text(combined_html)
         eng = extract_english_tests(plain)
         eng_html = build_english_html(eng)
-        if eng_html:
-            src = (ec or {}).get("source_url") or oc.get("apply_form") or ""
-            if ec:
-                layer_a_updates.append(
-                    (
-                        eng_html,
-                        eng["ielts"],
-                        eng["pte"],
-                        eng["toefl"],
-                        src,
-                        "parsed_from_verified_entry_requirements",
-                        cid,
-                    )
+        if eng_html and ec:
+            src = ec.get("source_url") or mc.get("db_apply_form") or ""
+            layer_a_updates.append(
+                (
+                    eng_html,
+                    eng["ielts"],
+                    eng["pte"],
+                    eng["toefl"],
+                    src,
+                    "parsed_from_verified_entry_requirements",
+                    ccode,
                 )
-            else:
-                conn.execute(
-                    """
-                    INSERT INTO enriched_courses
-                    (course_id, cricos_provider_code, institution_name, cricos_course_code, course_name,
-                     english_requirements, ielts_score, pte_score, toefl_score, english_source_url,
-                     english_method, international_verified, match_confidence, match_method, source_url, status, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1.0, 'parsed_existing_db', ?, 'stage3_enriched', ?)
-                    """,
-                    (
-                        cid,
-                        oc["cricos_provider_code"],
-                        oc["institution_name"],
-                        oc["cricos_course_code"],
-                        oc["course_name"],
-                        eng_html,
-                        eng["ielts"],
-                        eng["pte"],
-                        eng["toefl"],
-                        src,
-                        "parsed_from_verified_entry_requirements",
-                        src,
-                        now_iso,
-                    ),
-                )
+            )
 
     if layer_a_updates:
         conn.executemany(
@@ -544,19 +520,19 @@ async def run_stage3():
             UPDATE enriched_courses
             SET english_requirements = ?, ielts_score = ?, pte_score = ?, toefl_score = ?,
                 english_source_url = ?, english_method = ?
-            WHERE course_id = ?
+            WHERE cricos_course_code = ?
             """,
             layer_a_updates,
         )
-    conn.commit()
-    ec_map = {r["course_id"]: dict(r) for r in conn.execute("SELECT * FROM enriched_courses")}
+        conn.commit()
+
+    ec_map = {r["cricos_course_code"]: dict(r) for r in conn.execute("SELECT * FROM enriched_courses")}
     already_eng = sum(1 for v in ec_map.values() if v.get("english_requirements"))
     print(f"  Layer A complete: {already_eng} courses already have structured English requirements ({time.time()-t0:.1f}s)")
 
-    # Group courses still missing entry_requirements OR english_requirements by provider
     prov_rows = {
         r["cricos_provider_code"]: dict(r)
-        for r in conn.execute("SELECT * FROM orig_provider_institution")
+        for r in conn.execute("SELECT * FROM master_providers")
     }
     ep_rows = {
         r["cricos_provider_code"]: dict(r)
@@ -564,35 +540,35 @@ async def run_stage3():
     }
 
     missing_by_prov: dict[str, list[dict]] = {}
-    for oc in all_orig_courses:
-        cid = int(oc["id"])
-        ec = ec_map.get(cid, {})
-        has_entry = bool((oc.get("entry_requirements") or "").strip() or (ec.get("entry_requirements") or "").strip())
+    for mc in all_master_courses:
+        ccode = mc["cricos_course_code"]
+        ec = ec_map.get(ccode, {})
+        has_entry = bool((mc.get("db_entry_requirements") or "").strip() or (ec.get("entry_requirements") or "").strip())
         has_eng = bool(ec.get("english_requirements"))
         if not has_entry or not has_eng:
-            missing_by_prov.setdefault(oc["cricos_provider_code"], []).append(oc)
+            missing_by_prov.setdefault(mc["cricos_provider_code"], []).append(mc)
 
     target_prov_codes = sorted(missing_by_prov.keys(), key=lambda c: -len(missing_by_prov[c]))
     print(
-        f"Layer B & C: Scraping Entry & English Requirements across {len(target_prov_codes)} providers "
+        f"Layer B & C: Scraping Entry & English Requirements across {len(target_prov_codes)} CRICOS providers "
         f"({sum(len(v) for v in missing_by_prov.values())} courses needing Entry and/or English requirements)..."
     )
 
-    prov_sem = asyncio.Semaphore(20)
+    prov_sem = asyncio.Semaphore(28)
 
-    async with FastPolicyAndCourseFetcher(pw_concurrency=8, http_concurrency=38) as fetcher:
+    async with FastPolicyAndCourseFetcher(pw_concurrency=10, http_concurrency=48) as fetcher:
 
         async def process_provider_entry_english(pcode: str):
             async with prov_sem:
                 try:
-                    return await asyncio.wait_for(_do_provider(pcode), timeout=24.0)
+                    return await asyncio.wait_for(_do_provider(pcode), timeout=20.0)
                 except asyncio.TimeoutError:
                     return []
 
         async def _do_provider(pcode: str) -> list[tuple]:
-            p = prov_rows.get(pcode, {})
+            mp = prov_rows.get(pcode, {})
             ep = ep_rows.get(pcode, {})
-            web = ep.get("website") or p.get("website")
+            web = ep.get("website") or mp.get("cricos_website") or mp.get("db_website")
             if web and not web.startswith("http"):
                 web = "https://" + web.lstrip("/")
             if not web:
@@ -600,8 +576,12 @@ async def run_stage3():
 
             courses = missing_by_prov[pcode]
 
-            # 1. Discover & scrape official Provider English / International Entry Policy pages
-            policy_urls = await fetcher.find_provider_english_urls(web, p.get("institution_name", ""))
+            policy_urls = await fetcher.find_provider_english_urls(web, mp.get("institution_name", ""))
+            # Never apply ELICOS language-centre URLs as institution-wide degree policies
+            policy_urls = [
+                u for u in policy_urls
+                if not any(b in u.lower() for b in ("english-language-centre", "/elicos", "/blog/", "/news/", "/events/", "/staff/"))
+            ]
             level_policies: dict[str, dict] = {}
             best_policy_url = web
 
@@ -609,10 +589,8 @@ async def run_stage3():
                 fetched_policies = await asyncio.gather(
                     *[fetcher.fetch_page(u, expand_accordions=True, allow_pw=(idx == 0)) for idx, u in enumerate(policy_urls)]
                 )
-                combined_policy_txt = []
                 for u, (_, ptxt, final_u) in zip(policy_urls, fetched_policies):
-                    if ptxt:
-                        combined_policy_txt.append(ptxt)
+                    if ptxt and not any(b in final_u.lower() for b in ("english-language-centre", "/elicos")):
                         parsed_lvls = parse_policy_page_by_level(ptxt)
                         if parsed_lvls:
                             if best_policy_url == web or "english" in final_u.lower():
@@ -621,39 +599,42 @@ async def run_stage3():
                                 if k not in level_policies:
                                     level_policies[k] = v
 
-            # 2. Sample up to 6 direct course URLs on this provider for course-specific Entry & English requirements
             updates = []
 
-            async def enrich_one_course(oc: dict, idx: int):
-                cid = int(oc["id"])
-                ec = ec_map.get(cid, {})
-                cur_entry = (oc.get("entry_requirements") or "").strip() or (ec.get("entry_requirements") or "").strip()
+            async def enrich_one_course(mc: dict, idx: int):
+                ccode = mc["cricos_course_code"]
+                ec = ec_map.get(ccode, {})
+                cur_entry = (mc.get("db_entry_requirements") or "").strip() or (ec.get("entry_requirements") or "").strip()
                 cur_eng_html = ec.get("english_requirements")
 
-                c_url = ec.get("apply_form") or oc.get("apply_form")
+                # Strictly use CRICOS-verified course URL only (never unverified db_apply_form)
+                c_url = ec.get("apply_form")
                 is_specific_url = bool(c_url and urlparse(c_url).path.rstrip("/") not in ("", "/about", "/home", "/international"))
 
                 new_acad_html = None
-                new_eng = {"ielts": ec.get("ielts_score"), "pte": ec.get("pte_score"), "toefl": ec.get("toefl_score"), "other": None}
+                new_eng = {
+                    "ielts": ec.get("ielts_score"),
+                    "pte": ec.get("pte_score"),
+                    "toefl": ec.get("toefl_score"),
+                    "other": None,
+                }
                 eng_src = ec.get("english_source_url")
                 eng_method = ec.get("english_method")
 
-                # Try direct course page first (HTTP fast path for all with specific URL up to 15; Playwright on top 4)
-                if is_specific_url and idx < 15:
+                if is_specific_url and idx < 10:
                     _, ctxt, cfinal = await fetcher.fetch_page(
-                        c_url, expand_accordions=(idx < 4), allow_pw=(idx < 4)
+                        c_url, expand_accordions=(idx < 3), allow_pw=(idx < 3)
                     )
                     if ctxt:
                         c_eng = extract_english_tests(ctxt)
                         if any(c_eng.values()):
                             new_eng = c_eng
                             eng_src = cfinal
-                            eng_method = "course_page_direct"
+                            eng_method = "course_page_cricos_verified"
                         if not cur_entry:
-                            new_acad_html = extract_academic_entry_html(ctxt, oc.get("course_level", ""))
+                            new_acad_html = extract_academic_entry_html(ctxt, mc.get("course_level", ""))
 
-                # Fall back to verified Institution Level-Specific Official Policy Page
-                bkt = bucket_for_course(oc.get("course_level", ""), oc.get("course_name", ""))
+                bkt = bucket_for_course(mc.get("course_level", ""), mc.get("course_name", ""))
                 pol = level_policies.get(bkt) or level_policies.get("general")
                 if pol:
                     if not any(new_eng.values()) and any(pol["eng"].values()):
@@ -664,21 +645,16 @@ async def run_stage3():
                         new_acad_html = pol["acad"]
 
                 final_eng_html = cur_eng_html or build_english_html(new_eng)
-                final_entry_html = ec.get("entry_requirements")
-                if not (oc.get("entry_requirements") or "").strip() and not final_entry_html:
+                final_entry_html = ec.get("entry_requirements") or mc.get("db_entry_requirements")
+                if not final_entry_html:
                     final_entry_html = combine_entry_and_english_html(new_acad_html, final_eng_html)
-                elif not (oc.get("entry_requirements") or "").strip() and final_entry_html and final_eng_html and "IELTS" not in final_entry_html:
+                elif final_eng_html and "IELTS" not in final_entry_html:
                     final_entry_html = f"{final_entry_html} {final_eng_html}"
 
                 if not final_eng_html and not final_entry_html:
                     return None
 
                 return (
-                    cid,
-                    pcode,
-                    oc["institution_name"],
-                    oc["cricos_course_code"],
-                    oc["course_name"],
                     final_entry_html,
                     final_eng_html,
                     new_eng.get("ielts"),
@@ -686,58 +662,40 @@ async def run_stage3():
                     new_eng.get("toefl"),
                     eng_src or c_url or best_policy_url,
                     eng_method or "stage3_policy",
+                    now_iso,
+                    ccode,
                 )
 
-            c_results = await asyncio.gather(*[enrich_one_course(oc, idx) for idx, oc in enumerate(courses)])
+            c_results = await asyncio.gather(*[enrich_one_course(mc, idx) for idx, mc in enumerate(courses)])
             for r in c_results:
                 if r:
                     updates.append(r)
             return updates
 
-        batch_size = 50
+        batch_size = 60
         total_updated = 0
         for i in range(0, len(target_prov_codes), batch_size):
             batch = target_prov_codes[i : i + batch_size]
             res_lists = await asyncio.gather(*[process_provider_entry_english(pc) for pc in batch])
             flat_rows = [item for sub in res_lists for item in sub]
 
-            for (
-                cid, pcode, inst_name, ccode, cname,
-                f_entry, f_eng, ielts_s, pte_s, toefl_s, esrc, emeth
-            ) in flat_rows:
-                if cid in ec_map:
-                    conn.execute(
-                        """
-                        UPDATE enriched_courses
-                        SET entry_requirements = COALESCE(?, entry_requirements),
-                            english_requirements = COALESCE(?, english_requirements),
-                            ielts_score = COALESCE(?, ielts_score),
-                            pte_score = COALESCE(?, pte_score),
-                            toefl_score = COALESCE(?, toefl_score),
-                            english_source_url = COALESCE(?, english_source_url),
-                            english_method = COALESCE(?, english_method),
-                            updated_at = ?
-                        WHERE course_id = ?
-                        """,
-                        (f_entry, f_eng, ielts_s, pte_s, toefl_s, esrc, emeth, now_iso, cid),
-                    )
-                else:
-                    conn.execute(
-                        """
-                        INSERT INTO enriched_courses
-                        (course_id, cricos_provider_code, institution_name, cricos_course_code, course_name,
-                         entry_requirements, english_requirements, ielts_score, pte_score, toefl_score,
-                         english_source_url, english_method, international_verified, match_confidence,
-                         match_method, source_url, status, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0.92, ?, ?, 'stage3_enriched', ?)
-                        """,
-                        (
-                            cid, pcode, inst_name, ccode, cname,
-                            f_entry, f_eng, ielts_s, pte_s, toefl_s,
-                            esrc, emeth, emeth, esrc, now_iso,
-                        ),
-                    )
-            conn.commit()
+            if flat_rows:
+                conn.executemany(
+                    """
+                    UPDATE enriched_courses
+                    SET entry_requirements = COALESCE(?, entry_requirements),
+                        english_requirements = COALESCE(?, english_requirements),
+                        ielts_score = COALESCE(?, ielts_score),
+                        pte_score = COALESCE(?, pte_score),
+                        toefl_score = COALESCE(?, toefl_score),
+                        english_source_url = COALESCE(?, english_source_url),
+                        english_method = COALESCE(?, english_method),
+                        updated_at = ?
+                    WHERE cricos_course_code = ?
+                    """,
+                    flat_rows,
+                )
+                conn.commit()
             total_updated += len(flat_rows)
             print(
                 f"  Stage 3 progress: {min(i+batch_size, len(target_prov_codes))}/{len(target_prov_codes)} providers "
@@ -745,16 +703,16 @@ async def run_stage3():
             )
 
     final_entry_cnt = conn.execute(
-        "SELECT COUNT(*) FROM orig_courses o LEFT JOIN enriched_courses ec ON ec.course_id=o.id "
-        "WHERE COALESCE(NULLIF(TRIM(o.entry_requirements),''), NULLIF(TRIM(ec.entry_requirements),'')) IS NOT NULL"
+        "SELECT COUNT(*) FROM enriched_courses WHERE entry_requirements IS NOT NULL AND TRIM(entry_requirements)!=''"
     ).fetchone()[0]
     final_eng_cnt = conn.execute(
         "SELECT COUNT(*) FROM enriched_courses WHERE english_requirements IS NOT NULL AND TRIM(english_requirements)!=''"
     ).fetchone()[0]
+    total_mc = len(all_master_courses)
     print(
         f"Stage 3 Complete in {time.time()-t0:.1f}s! "
-        f"Courses with Entry Requirements: {final_entry_cnt}/9439 | "
-        f"Courses with Structured English Requirements: {final_eng_cnt}/9439"
+        f"Courses with Entry Requirements: {final_entry_cnt}/{total_mc} | "
+        f"Courses with Structured English Requirements: {final_eng_cnt}/{total_mc}"
     )
     conn.close()
 

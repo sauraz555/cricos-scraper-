@@ -1,33 +1,59 @@
 {
-  "extraction_date": "2026-11-02",
-  "extraction_window_local": {
-    "started_at": "2026-11-02 12:08:30",
-    "completed_at": "2026-11-02 13:58:49"
+  "unique_id_keys": {
+    "providers": "cricos_provider_code",
+    "courses": "cricos_course_code",
+    "fuzzy_matching_allowed": false
   },
-  "exported_at": "2026-11-02T16:20:45+10:00",
-  "providers_enriched_count": 731,
-  "provider_intake_dates_filled": 185,
-  "courses_enriched_count": 9310,
-  "international_scholarships_matched_to_db_providers": 1026,
-  "course_field_fill_breakdown": {
-    "apply_form": 1812,
-    "course_description": 1301,
-    "entry_requirements": 2619,
-    "english_requirements": 4615,
-    "offshore_tuition_fee": 50,
-    "onshore_tuition_fee": 4,
-    "enrolment_fee": 1612,
-    "materials_fee": 246,
-    "total_course_duration": 6106,
-    "assessment_style": 7524,
-    "intakes": 6971
+  "cricos_official_api": {
+    "package_url": "https://data.gov.au/data/api/3/action/package_show?id=e5ae7059-bfa8-4fa4-a5c0-c13cf3520193",
+    "metadata_modified": "2026-11-02T08:03:36.495148",
+    "institutions_last_modified": "2026-11-02T08:03:10.952378",
+    "courses_last_modified": "2026-11-02T08:03:13.668673",
+    "synced_at": "2026-11-04T17:42:20+10:00"
+  },
+  "extraction_date": "2026-11-05",
+  "extraction_window_local": {
+    "started_at": "2026-11-02 12:17:15",
+    "completed_at": "2026-11-04 17:58:05"
+  },
+  "exported_at": "2026-11-05T09:34:05+10:00",
+  "providers_total_cricos": 1543,
+  "providers_existing_db_updated": 772,
+  "providers_new_cricos_inserted": 771,
+  "provider_websites_populated": 1362,
+  "provider_intake_dates_populated": 482,
+  "provider_logos_populated": 1305,
+  "provider_contact_emails_populated": 988,
+  "courses_total_active_cricos": 25199,
+  "courses_existing_db_updated": 8106,
+  "courses_new_cricos_inserted": 17093,
+  "repaired_6digit_leading_zero_codes": 214,
+  "expired_or_deregistered_db_courses_flagged": 1333,
+  "international_scholarships_matched": 1063,
+  "locations_total_cricos": 3850,
+  "course_locations_total_cricos": 44855,
+  "course_field_coverage": {
+    "offshore_tuition_fee_official_cricos": 24947,
+    "total_course_duration": 25193,
+    "apply_form": 13598,
+    "course_description": 15086,
+    "entry_requirements": 16675,
+    "english_requirements": 10458,
+    "onshore_tuition_fee_distinct_promo": 5,
+    "enrolment_fee": 3786,
+    "materials_fee": 961,
+    "assessment_style": 21387,
+    "intakes": 17933
   },
   "files_generated": [
     "exports/review_providers_international.csv",
     "exports/review_providers_international.json",
     "exports/review_courses_international_clean.csv",
-    "exports/review_courses_international.json",
+    "exports/review_courses_international_part1.jsonl",
+    "exports/review_courses_international_part2.jsonl",
     "exports/review_scholarships_international.csv",
-    "exports/review_scholarships_international.json"
+    "exports/review_scholarships_international.json",
+    "exports/review_repaired_cricos_codes.csv",
+    "exports/review_expired_courses.csv"
   ]
 }
