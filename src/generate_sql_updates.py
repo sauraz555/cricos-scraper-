@@ -134,7 +134,13 @@ def generate_sql():
 
     prov_json = os.path.join(EXPORT_DIR, "review_providers_international.json")
     prov_csv = os.path.join(EXPORT_DIR, "review_providers_international.csv")
+    verified_course_csv = os.path.join(EXPORT_DIR, "review_courses_international_verified.csv")
     clean_course_csv = os.path.join(EXPORT_DIR, "review_courses_international_clean.csv")
+    if os.path.exists(verified_course_csv) and (
+        not os.path.exists(clean_course_csv)
+        or os.path.getmtime(verified_course_csv) >= os.path.getmtime(clean_course_csv)
+    ):
+        clean_course_csv = verified_course_csv
     sch_csv = os.path.join(EXPORT_DIR, "review_scholarships_international.csv")
 
     header_lines = [

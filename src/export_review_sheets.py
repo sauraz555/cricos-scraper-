@@ -63,12 +63,12 @@ def html_to_preview(s: str | None, max_len: int = 320) -> str:
 def safe_write_csv(path: str, rows: list[dict]) -> str:
     if not rows:
         return path
-    candidates = [
-        path,
-        path.replace(".csv", "_clean.csv"),
-        path.replace(".csv", "_v2.csv"),
-        path.replace(".csv", "_v3.csv"),
-    ]
+    stem = path[:-4] if path.endswith(".csv") else path
+    if stem.endswith("_clean"):
+        base_stem = stem[:-6]
+        candidates = [path, f"{base_stem}_verified.csv", f"{base_stem}_v2.csv"]
+    else:
+        candidates = [path, f"{stem}_verified.csv", f"{stem}_v2.csv"]
     for cand in candidates:
         try:
             with open(cand, "w", newline="", encoding="utf-8-sig") as f:

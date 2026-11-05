@@ -11,7 +11,8 @@ data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 
-# Stale pre-sanitization v1 snapshot (locked by Excel locally; clean version is review_courses_international_clean.csv)
+# Stale pre-sanitization snapshots (locked by Excel locally; latest verified sheet is review_courses_international_verified.csv)
 exports/review_courses_international.csv
+exports/review_courses_international_clean.csv
 exports/*_v2.csv
 exports/*_v3.csv
