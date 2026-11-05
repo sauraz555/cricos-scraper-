@@ -1,6 +1,6 @@
 {
   "extraction_date": "2026-11-05",
-  "verified_at": "2026-11-05T10:40:15+10:00",
+  "verified_at": "2026-11-05T12:32:55+10:00",
   "total_providers_verified": 1543,
   "total_active_courses_verified": 25199,
   "total_international_scholarships_verified": 995,
@@ -12,9 +12,9 @@
     "dummy_or_placeholder_tuition_fees_cleared": 0,
     "live_verified_onshore_fee_synced": 0,
     "outlier_enrol_materials_removed": 0,
-    "english_strings_repaired": 3,
-    "elicos_or_low_degree_ielts_cleared": 0,
-    "domestic_contaminated_entry_cleaned": 4,
+    "english_strings_repaired": 0,
+    "elicos_or_low_degree_ielts_cleared": 4,
+    "domestic_contaminated_entry_cleaned": 44,
     "domestic_contaminated_desc_cleaned": 0,
     "domestic_only_scholarships_excluded": 0,
     "non_exact_match_methods_reset": 0

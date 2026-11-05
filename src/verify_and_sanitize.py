@@ -15,7 +15,11 @@ import json
 import os
 import re
 import sqlite3
+import sys
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from playwright.async_api import async_playwright
 from selectolax.parser import HTMLParser
@@ -108,7 +112,11 @@ REAL_REQ_KEYWORDS = re.compile(
 )
 
 
-def sanitize_url(u: str | None, allow_combined_dom_intl_path: bool = False) -> str | None:
+def sanitize_url(
+    u: str | None,
+    allow_combined_dom_intl_path: bool = False,
+    allow_pdf: bool = False,
+) -> str | None:
     if not u:
         return None
     u = u.strip().rstrip("`")
@@ -117,7 +125,8 @@ def sanitize_url(u: str | None, allow_combined_dom_intl_path: bool = False) -> s
     ul = u.lower()
     if any(b in ul for b in BAD_URL_SUBSTRINGS):
         return None
-    if ul.endswith((".pdf", ".doc", ".docx", ".jpg", ".png", ".zip")):
+    disallowed_exts = (".doc", ".docx", ".jpg", ".png", ".zip") if allow_pdf else (".pdf", ".doc", ".docx", ".jpg", ".png", ".zip")
+    if ul.endswith(disallowed_exts):
         return None
     try:
         p = urlparse(u)
@@ -158,8 +167,8 @@ def sanitize_url(u: str | None, allow_combined_dom_intl_path: bool = False) -> s
         return None
 
 
-def sanitize_course_url(u: str | None) -> str | None:
-    return sanitize_url(u, allow_combined_dom_intl_path=False)
+def sanitize_course_url(u: str | None, allow_pdf: bool = False) -> str | None:
+    return sanitize_url(u, allow_combined_dom_intl_path=False, allow_pdf=allow_pdf)
 
 
 def fix_unbalanced_parens(s: str) -> str:
@@ -618,7 +627,7 @@ def run_sanitization_and_audit() -> dict:
         elif orig_u and clean_u != orig_u:
             stats["urls_cleaned_or_flipped_to_intl"] += 1
 
-        clean_src_u = sanitize_course_url(r.get("source_url")) or clean_u or "https://cricos.education.gov.au/"
+        clean_src_u = sanitize_course_url(r.get("source_url"), allow_pdf=True) or clean_u or "https://cricos.education.gov.au/"
 
         enrol = r.get("enrolment_fee")
         if enrol is not None and (float(enrol) < 50.0 or float(enrol) > 2000.0):
@@ -631,7 +640,7 @@ def run_sanitization_and_audit() -> dict:
             stats["outlier_enrol_materials_removed"] += 1
 
         raw_esrc = r.get("english_source_url")
-        clean_esrc = sanitize_course_url(raw_esrc)
+        clean_esrc = sanitize_course_url(raw_esrc, allow_pdf=True)
         emeth = r.get("english_method") or ""
 
         ie = clean_single_test_str(r.get("ielts_score"), "ielts")
@@ -646,7 +655,7 @@ def run_sanitization_and_audit() -> dict:
             stats["english_strings_repaired"] += 1
 
         esrc_low = (clean_esrc or "").lower()
-        if "institution_official_policy" in emeth and any(
+        if "policy" in emeth and any(
             b in esrc_low for b in ("english-language-centre", "/elicos", "/blog/", "/news/", "/events/", "/staff/")
         ):
             ie = pt = tf = None
@@ -656,10 +665,16 @@ def run_sanitization_and_audit() -> dict:
             m_sc = re.search(r"\b([45678](?:\.[05])?)\b", ie)
             if m_sc:
                 sc = float(m_sc.group(1))
+                cname_str = (r.get("course_name") or "").strip()
                 if ("masters" in lvl or "doctoral" in lvl) and sc < 6.0:
                     ie = pt = tf = None
                     stats["elicos_or_low_degree_ielts_cleared"] += 1
                 elif "bachelor" in lvl and sc < 5.5:
+                    ie = pt = tf = None
+                    stats["elicos_or_low_degree_ielts_cleared"] += 1
+                elif "policy" in emeth and sc < 7.0 and re.match(
+                    r"^(?:bachelor|diploma)\s+of\s+(?:nursing|midwifery)\b", cname_str, re.I
+                ):
                     ie = pt = tf = None
                     stats["elicos_or_low_degree_ielts_cleared"] += 1
 

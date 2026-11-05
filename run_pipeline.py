@@ -14,6 +14,7 @@ from stage0_cricos_api_sync import run_stage0
 from stage1_acir_harvester import run_stage1
 from stage2_playwright_enricher import run_stage2
 from stage3_entry_english_enricher import run_stage3
+from stage4_deep_pdf_web_enricher import run_stage4
 from verify_and_sanitize import run_full_verification
 from export_review_sheets import export_all
 from generate_sql_updates import generate_sql
@@ -27,6 +28,8 @@ def main():
     parser.add_argument("--skip-stage1", action="store_true", help="Skip Stage 1 ACIR official harvester")
     parser.add_argument("--skip-stage2", action="store_true", help="Skip Stage 2 Playwright/HTTP course & provider scraper")
     parser.add_argument("--skip-stage3", action="store_true", help="Skip Stage 3 Entry & English requirements extractor")
+    parser.add_argument("--skip-stage4", action="store_true", help="Skip Stage 4 Deep Web, PDF & TGA VET enricher")
+    parser.add_argument("--stage4-only", action="store_true", help="Run Stage 4 Deep Web/PDF/TGA enricher + verification")
     parser.add_argument("--no-resume", action="store_true", help="Re-scrape all providers from scratch instead of resuming")
     parser.add_argument("--max-providers", type=int, default=None, help="Optional cap on Stage 2 provider count")
     parser.add_argument("--export-only", action="store_true", help="Only export CSV/JSONL review sheets from SQLite")
@@ -50,6 +53,11 @@ def main():
         run_full_verification(run_live_playwright=True)
         return
 
+    if args.stage4_only:
+        asyncio.run(run_stage4())
+        run_full_verification(run_live_playwright=True)
+        return
+
     if (not args.skip_load or not os.path.exists(DB_PATH)) and os.path.exists(args.sql_dump):
         load_sql_dump(sql_path=args.sql_dump)
 
@@ -64,6 +72,9 @@ def main():
 
     if not args.skip_stage3:
         asyncio.run(run_stage3())
+
+    if not args.skip_stage4:
+        asyncio.run(run_stage4())
 
     run_full_verification(run_live_playwright=True)
 

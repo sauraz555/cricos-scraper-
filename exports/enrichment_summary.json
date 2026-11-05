@@ -14,16 +14,16 @@
   "extraction_date": "2026-11-05",
   "extraction_window_local": {
     "started_at": "2026-11-02 12:17:15",
-    "completed_at": "2026-11-04 17:58:05"
+    "completed_at": "2026-11-05 12:31:38"
   },
-  "exported_at": "2026-11-05T10:39:35+10:00",
+  "exported_at": "2026-11-05T12:35:16+10:00",
   "providers_total_cricos": 1543,
   "providers_existing_db_updated": 772,
   "providers_new_cricos_inserted": 771,
-  "provider_websites_populated": 1362,
-  "provider_intake_dates_populated": 482,
+  "provider_websites_populated": 1471,
+  "provider_intake_dates_populated": 531,
   "provider_logos_populated": 1305,
-  "provider_contact_emails_populated": 979,
+  "provider_contact_emails_populated": 1211,
   "courses_total_active_cricos": 25199,
   "courses_existing_db_updated": 8106,
   "courses_new_cricos_inserted": 17093,
@@ -35,15 +35,15 @@
   "course_field_coverage": {
     "offshore_tuition_fee_official_cricos": 24899,
     "total_course_duration": 25193,
-    "apply_form": 13582,
-    "course_description": 15081,
-    "entry_requirements": 16627,
-    "english_requirements": 10437,
+    "apply_form": 14507,
+    "course_description": 18560,
+    "entry_requirements": 20445,
+    "english_requirements": 14824,
     "onshore_tuition_fee_distinct_promo": 5,
-    "enrolment_fee": 3786,
-    "materials_fee": 961,
+    "enrolment_fee": 3975,
+    "materials_fee": 1152,
     "assessment_style": 21387,
-    "intakes": 17933
+    "intakes": 18424
   },
   "files_generated": [
     "exports/review_providers_international.csv",
@@ -51,6 +51,7 @@
     "exports/review_courses_international_verified.csv",
     "exports/review_courses_international_part1.jsonl",
     "exports/review_courses_international_part2.jsonl",
+    "exports/review_courses_international_part3.jsonl",
     "exports/review_scholarships_international.csv",
     "exports/review_scholarships_international.json",
     "exports/review_repaired_cricos_codes.csv",

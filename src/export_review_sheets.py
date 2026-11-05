@@ -399,8 +399,13 @@ def export_all():
         course_json_out.append(json_rec)
 
     course_csv_path = safe_write_csv(
-        os.path.join(EXPORT_DIR, "review_courses_international_clean.csv"), course_rows_out
+        os.path.join(EXPORT_DIR, "review_courses_international_verified.csv"), course_rows_out
     )
+    # Also refresh legacy _clean.csv best-effort if not locked by Excel locally
+    try:
+        safe_write_csv(os.path.join(EXPORT_DIR, "review_courses_international_clean.csv"), course_rows_out)
+    except Exception:
+        pass
     course_jsonl_paths = write_jsonl_chunked("review_courses_international", course_json_out)
 
     # ------------------------------------------------------------------
