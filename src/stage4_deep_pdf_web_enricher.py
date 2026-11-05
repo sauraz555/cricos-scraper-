@@ -57,6 +57,11 @@ from verify_and_sanitize import (
     sanitize_entry_html,
     sanitize_url,
 )
+from entry_english_rules import (
+    ENTRY_REQUIREMENT_PREDICATE_RE,
+    html_to_clean_texts,
+    unwrap_pdf_and_ligatures,
+)
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(PROJECT_DIR, "data", "dashboard_mirror.sqlite")
@@ -164,12 +169,27 @@ def format_tga_entry_requirements(raw_html: str | None) -> str | None:
     for node in tree.css("li, p"):
         if node.tag == "p" and node.css("li"):
             continue
-        t = re.sub(r"\s+", " ", node.text(separator=" ", strip=True)).strip()
-        if len(t) < 18 or t.lower() in ("or", "and", "nil", "entry to this qualification is limited to those who:", "entry to this qualification is open to individuals who:"):
+        t = re.sub(r"\s+", " ", node.text(separator=" ", strip=True)).strip().rstrip(" ;,")
+        if len(t) < 12 or t.lower() in (
+            "or", "and", "nil",
+            "entry to this qualification is limited to those who:",
+            "entry to this qualification is open to individuals who:",
+            "individuals must provide evidence of:",
+        ):
             continue
+        # Prefix bare Training Package prerequisite codes/titles so they are explicit & grammatical
+        if not ENTRY_REQUIREMENT_PREDICATE_RE.search(t) and re.search(
+            r"^(?:[A-Z]{3,4}\d{4,5}[A-Z]?\b|(?:Certificate|Diploma|Advanced\s+Diploma)\s+(?:I|II|III|IV|of|in)\b)",
+            t,
+            re.I,
+        ):
+            t = f"Prerequisite qualification: Completion of {t}."
+        elif not t.endswith("."):
+            t = f"{t}."
         bullets.append(f"<li>{html.escape(t)}</li>")
     if not bullets and len(plain) >= 25:
-        bullets.append(f"<li>{html.escape(plain)}</li>")
+        p_txt = plain if ENTRY_REQUIREMENT_PREDICATE_RE.search(plain) else f"Prerequisite requirement: {plain}"
+        bullets.append(f"<li>{html.escape(p_txt)}</li>")
     if not bullets:
         return None
     cand = f"<h4>Academic Entry Requirements (International Students)</h4><ul>{''.join(bullets[:5])}</ul>"
@@ -584,13 +604,7 @@ class DeepEnricherEngine:
                 if r.status_code == 200 and ("html" in ctype or "xml" in ctype or "text" in ctype):
                     http_html = r.text
                     http_final = str(r.url)
-                    tbl_txt = parse_html_english_tables(http_html)
-                    tree = HTMLParser(http_html)
-                    for tag in tree.css("script, style, noscript"):
-                        tag.decompose()
-                    http_txt = tree.body.text(separator="\n", strip=True) if tree.body else tree.text(separator="\n", strip=True)
-                    if tbl_txt:
-                        http_txt = tbl_txt + "\n" + http_txt
+                    http_txt, _ = html_to_clean_texts(http_html)
                     if len(http_txt) >= 450 and "Just a moment..." not in http_txt[:400]:
                         if not require_ielts_or_pw or re.search(r"\b(IELTS|PTE|TOEFL)\b", http_txt, re.I):
                             return http_html, http_txt, http_final
@@ -628,10 +642,7 @@ class DeepEnricherEngine:
                                 pass
                     await page.wait_for_timeout(350)
                 h = await page.content()
-                tbl_txt = parse_html_english_tables(h)
-                txt = await page.inner_text("body")
-                if tbl_txt:
-                    txt = tbl_txt + "\n" + txt
+                txt, _ = html_to_clean_texts(h)
                 return h, txt, page.url
             except Exception:
                 return http_html, http_txt, http_final
@@ -666,7 +677,7 @@ class DeepEnricherEngine:
             pages = []
             max_p = min(len(doc), 120)
             for i in range(max_p):
-                pages.append(doc[i].get_text("text") or "")
+                pages.append(unwrap_pdf_and_ligatures(doc[i].get_text("text") or ""))
             doc.close()
             return pages
         except Exception:

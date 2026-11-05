@@ -24,6 +24,27 @@ if hasattr(sys.stdout, "reconfigure"):
 from playwright.async_api import async_playwright
 from selectolax.parser import HTMLParser
 
+from entry_english_rules import (
+    ACCORDION_HEADING_ONLY_RE,
+    COUNTRY_CERT_ROW_RE,
+    DANGLING_END_RE,
+    DOMESTIC_ONLY_TEXT_RE,
+    DOMESTIC_STATE_CERT_OR_RANK_RE,
+    ENTRY_REQUIREMENT_PREDICATE_RE,
+    IELTS_BAND_NUM_RE,
+    NON_ENTRY_NOISE_RE,
+    SUBSTANTIVE_REQ_CONCEPT_RE,
+    _violates_other_course_exception,
+    clean_and_validate_academic_bullet,
+    clean_single_test_str_v2,
+    filter_consistent_bullets,
+    has_chopped_decimal_subband,
+    has_contradictory_ielts_subband,
+    is_bullet_compatible_with_level,
+    reconcile_test_concordance,
+    validate_and_reconcile_english,
+)
+
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(PROJECT_DIR, "data", "dashboard_mirror.sqlite")
 EXPORT_DIR = os.path.join(PROJECT_DIR, "exports")
@@ -78,20 +99,7 @@ BAD_EMAIL_PATTERNS = re.compile(
     re.I,
 )
 
-# Strict Domestic-Only Clauses in Entry Requirements & Course Descriptions
-DOMESTIC_ONLY_TEXT_RE = re.compile(
-    r"\b("
-    r"commonwealth\s+supported|hecs(?:-help)?|fee-help|sa-help|os-help|vet\s+student\s+loans?|"
-    r"vtac|uac|qtac|satac|tisc|"
-    r"austudy|ausstudy|abstudy|centrelink|youth\s+allowance|concession\s+card|health\s+care\s+card|"
-    r"smart\s+and\s+skilled|skills\s+first|fee-free\s+tafe|free\s+tafe|certificate\s+3\s+guarantee|"
-    r"jobs\s+and\s+skills\s+wa|subsidised\s+training|government[- ]subsidised|"
-    r"australian\s+citizens?|new\s+zealand\s+citizens?|permanent\s+residents?|"
-    r"domestic\s+applicants?|domestic\s+students?|local\s+students?|first\s+nation\s+applicants?|"
-    r"humanitarian\s+visa|australian\s+apprenticeships?"
-    r")\b",
-    re.I,
-)
+# Strict Domestic-Only Clauses are imported directly from `entry_english_rules.DOMESTIC_ONLY_TEXT_RE`
 
 ATAR_RANK_RE = re.compile(
     r"\b(atar|selection\s+rank|guaranteed\s+entry\s+rank|lowest\s+selection\s+rank)\b",
@@ -188,63 +196,7 @@ def fix_unbalanced_parens(s: str) -> str:
 
 
 def clean_single_test_str(s: str | None, test_type: str) -> str | None:
-    if not s:
-        return None
-    s = re.sub(r"\s+", " ", s).strip()
-    # Collapse duplicate test prefix ("IELTS IELTS ..." -> "IELTS ...")
-    s = re.sub(r"\b(IELTS|PTE|TOEFL)\s+\1\b", r"\1", s, flags=re.I)
-    s = re.sub(r"^(IELTS|PTE|TOEFL)(?:\s+or\s+equivalent)?\s*\)\s*[:\-–]?\s*", r"\1: ", s, flags=re.I)
-    s = re.sub(r"\(\s*(Academic|iBT)\s*\)", r"\1", s, flags=re.I)
-
-    # Truncate before bled-in academic/age/prerequisite/student-cohort headings or multi-course exceptions
-    s = re.split(
-        r"\b(?:Academic\s+Requirements?|Age\s+Requirements?|Prerequisites?|Entry\s+Requirements?|Academic\s*:|Domestic\s+Students?|Domestic\s+Applicants?|International\s+Students?|all\s+courses\s+except)\b",
-        s,
-        flags=re.I,
-    )[0]
-
-    # Reject if ATAR / scaled score bled into PTE/TOEFL/IELTS
-    if re.search(r"\b(atar|scaled\s+score|selection\s+rank)\b", s, re.I):
-        return None
-
-    if test_type == "ielts":
-        s = re.split(r"\b(?:PTE|Pearson|TOEFL|Cambridge|CAE|C1\s+Advanced|C2\s+Proficiency|OET|Duolingo|ISLPR)\b", s, flags=re.I)[0]
-    elif test_type == "pte":
-        m_start = re.search(r"\b(?:PTE|Pearson)\b.*", s, flags=re.I)
-        if m_start:
-            s = m_start.group(0)
-        s = re.split(r"\b(?:IELTS|TOEFL|Cambridge|CAE|C1\s+Advanced|C2\s+Proficiency|OET|Duolingo|ISLPR)\b", s, flags=re.I)[0]
-    elif test_type == "toefl":
-        m_start = re.search(r"\bTOEFL\b.*", s, flags=re.I)
-        if m_start:
-            s = m_start.group(0)
-        if re.match(r"^TOEFL\s*[—\-–:]+\s*(?:PTE|IELTS)", s, flags=re.I):
-            num_m = re.search(r"\b(1[01]\d|[456789]\d)\b", s)
-            s = f"TOEFL iBT: Overall {num_m.group(1)}" if num_m else ""
-        else:
-            s = re.split(r"\b(?:IELTS|PTE|Pearson|Cambridge|CAE|C1\s+Advanced|C2\s+Proficiency|OET|Duolingo|ISLPR)\b", s, flags=re.I)[0]
-
-    s = fix_unbalanced_parens(s)
-    s = re.sub(r"\s+", " ", s).strip(" ,;:-–—.=")
-    if len(s) < 7:
-        return None
-
-    if test_type == "ielts":
-        nums = [float(x) for x in re.findall(r"\b([45678](?:\.[05])?)\b", s)]
-        if not nums or not (4.5 <= nums[0] <= 8.5):
-            return None
-        # Reject contradictory multi-score strings like "5.5, 6.5" where second number > overall
-        if len(nums) >= 2 and nums[1] > nums[0]:
-            return None
-    elif test_type == "pte":
-        m = re.search(r"\b([345678]\d)\b", s)
-        if not m or not (36 <= int(m.group(1)) <= 86):
-            return None
-    elif test_type == "toefl":
-        m = re.search(r"\b(1[01]\d|[456789]\d)\b", s)
-        if not m or not (35 <= int(m.group(1)) <= 115):
-            return None
-    return s
+    return clean_single_test_str_v2(s, test_type)
 
 
 def rebuild_english_html(ielts: str | None, pte: str | None, toefl: str | None) -> str | None:
@@ -274,12 +226,35 @@ def _is_domestic_contaminated_clause(txt: str) -> bool:
     return False
 
 
-def sanitize_entry_html(entry_html: str | None, clean_eng_html: str | None) -> str | None:
+def _extract_academic_bullets_from_entry_html(entry_html: str | None) -> list[str]:
+    if not entry_html:
+        return []
+    parts = re.split(r"<h4>\s*English\s+Language\s+Requirements", entry_html, flags=re.I)
+    acad_part = parts[0]
+    if "Academic Entry Requirements" not in acad_part and "Entry Requirements" not in acad_part:
+        return []
+    tree = HTMLParser(acad_part)
+    return [re.sub(r"\s+", " ", li.text(strip=True)).strip() for li in tree.css("li") if li.text(strip=True)]
+
+
+def sanitize_entry_html(
+    entry_html: str | None,
+    clean_eng_html: str | None,
+    course_level: str = "",
+    course_name: str = "",
+    duration_weeks: int | None = None,
+) -> str | None:
     if not entry_html:
         return clean_eng_html
-    tree = HTMLParser(entry_html)
-    plain = re.sub(r"\s+", " ", tree.text(separator=" ", strip=True)).strip()
 
+    # Separate any existing English section so we only validate Academic bullets
+    parts = re.split(r"<h4>\s*English\s+Language\s+Requirements", entry_html, flags=re.I)
+    acad_raw = parts[0].strip()
+    if not acad_raw:
+        return clean_eng_html
+
+    tree = HTMLParser(acad_raw)
+    plain = re.sub(r"\s+", " ", tree.text(separator=" ", strip=True)).strip()
     body_only = re.sub(
         r"(?:Entry Requirements|Academic Entry Requirements|English Language Requirements)\s*(?:\(International(?: Students)?\))?\s*:?",
         "",
@@ -287,57 +262,50 @@ def sanitize_entry_html(entry_html: str | None, clean_eng_html: str | None) -> s
         flags=re.I,
     ).strip(" .,:;-")
 
-    if len(body_only) < 15 or not REAL_REQ_KEYWORDS.search(body_only):
+    if len(body_only) < 18:
         return clean_eng_html
 
-    candidates = []
+    candidates: list[str] = []
     nodes = tree.css("li, p, td")
     if nodes:
         for n in nodes:
-            # Skip container <p>/<td> if it wraps inner <li> elements to avoid duplicating bullets
             if n.tag in ("p", "td") and n.css("li"):
                 continue
-            candidates.append(re.sub(r"\s+", " ", n.text(separator=" ", strip=True)).strip())
+            txt = re.sub(r"\s+", " ", n.text(separator=" ", strip=True)).strip()
+            if txt:
+                if len(txt) > 260 and n.tag in ("p", "td"):
+                    candidates.extend(s.strip() for s in re.split(r"(?<=[.!?;])\s+", txt) if s.strip())
+                else:
+                    candidates.append(txt)
     else:
         candidates = [s.strip() for s in re.split(r"(?<=[.;])\s+", body_only) if s.strip()]
 
-    kept_blocks = []
-    seen_norm = set()
+    kept_bullets: list[str] = []
+    seen_norm: set[str] = set()
     for nt in candidates:
-        low = nt.lower()
-        if low.startswith(("english language requirements", "english (ielts)", "ielts academic:", "pte academic:", "toefl ibt:", "other accepted tests:", "academic requirements")):
+        if _is_domestic_contaminated_clause(nt):
             continue
-        cleaned_nt = re.sub(
-            r"^(?:Academic Entry Requirements\s*(?:\(International Students\))?|Entry Requirements|Academic Requirements?)\s*[:\-–]?\s*",
-            "",
+        valid_b = clean_and_validate_academic_bullet(
             nt,
-            flags=re.I,
-        ).strip()
-        if len(cleaned_nt) < 15 or cleaned_nt == ".":
+            course_level=course_level,
+            course_name=course_name,
+            duration_weeks=duration_weeks,
+        )
+        if not valid_b:
             continue
-        if _is_domestic_contaminated_clause(cleaned_nt):
+        if _is_domestic_contaminated_clause(valid_b):
             continue
-        if not REAL_REQ_KEYWORDS.search(cleaned_nt):
-            continue
-        if any(
-            fluff in cleaned_nt.lower()
-            for fluff in (
-                "launch you into your future",
-                "contemporary, accessible",
-                "you will get a nationally recognised",
-                "somerville house is a prep to year 12",
-            )
-        ):
-            continue
-        cleaned_nt = cleaned_nt.replace("\ufffd", "'")
-        key = cleaned_nt.lower()
+        key = valid_b.lower()
         if key not in seen_norm:
             seen_norm.add(key)
-            kept_blocks.append(f"<li>{html.escape(cleaned_nt)}</li>")
+            kept_bullets.append(valid_b)
+        if len(kept_bullets) >= 5:
+            break
 
+    kept_bullets = filter_consistent_bullets(kept_bullets, course_level)
     acad_part = (
-        f"<h4>Academic Entry Requirements (International Students)</h4><ul>{''.join(kept_blocks)}</ul>"
-        if kept_blocks
+        f"<h4>Academic Entry Requirements (International Students)</h4><ul>{''.join(f'<li>{html.escape(b)}</li>' for b in kept_bullets)}</ul>"
+        if kept_bullets
         else None
     )
     if acad_part and clean_eng_html:
@@ -566,12 +534,17 @@ def run_sanitization_and_audit() -> dict:
             stats["domestic_only_scholarships_excluded"] += 1
 
     # 3. Sanitize ALL master_courses legacy DB columns & PRISMS $1 dummy fees
-    mc_levels = {}
+    mc_levels_raw = {}
+    mc_names = {}
     mc_weeks = {}
+    mc_clean_db_ent = {}
     mc_updates = []
-    for r in conn.execute("SELECT cricos_course_code, course_level, duration_weeks, cricos_tuition_fee, db_offshore_tuition_fee, db_entry_requirements, db_course_description FROM master_courses"):
+    for r in conn.execute("SELECT cricos_course_code, course_name, course_level, duration_weeks, cricos_tuition_fee, db_offshore_tuition_fee, db_entry_requirements, db_course_description FROM master_courses"):
         cc = r["cricos_course_code"]
-        mc_levels[cc] = (r["course_level"] or "").lower()
+        cl_exact = (r["course_level"] or "").strip()
+        cname_exact = (r["course_name"] or "").strip()
+        mc_levels_raw[cc] = cl_exact
+        mc_names[cc] = cname_exact
         wks = r["duration_weeks"]
         mc_weeks[cc] = wks
 
@@ -585,7 +558,12 @@ def run_sanitization_and_audit() -> dict:
             db_fee = None
 
         db_ent = r["db_entry_requirements"]
-        clean_db_ent = sanitize_entry_html(db_ent, None) if db_ent else None
+        clean_db_ent = (
+            sanitize_entry_html(db_ent, None, course_level=cl_exact, course_name=cname_exact, duration_weeks=wks)
+            if db_ent
+            else None
+        )
+        mc_clean_db_ent[cc] = clean_db_ent
         db_dsc = r["db_course_description"]
         clean_db_dsc = sanitize_desc_html(db_dsc) if db_dsc else None
 
@@ -609,7 +587,8 @@ def run_sanitization_and_audit() -> dict:
 
     for r in rows:
         ccode = r["cricos_course_code"]
-        lvl = mc_levels.get(ccode, "")
+        cl_exact = mc_levels_raw.get(ccode, "")
+        cname_exact = mc_names.get(ccode, r.get("course_name") or "")
         wks = mc_weeks.get(ccode, 0)
 
         mm = r.get("match_method") or "cricos_official_register"
@@ -643,47 +622,45 @@ def run_sanitization_and_audit() -> dict:
         clean_esrc = sanitize_course_url(raw_esrc, allow_pdf=True)
         emeth = r.get("english_method") or ""
 
-        ie = clean_single_test_str(r.get("ielts_score"), "ielts")
-        pt = clean_single_test_str(r.get("pte_score"), "pte")
-        tf = clean_single_test_str(r.get("toefl_score"), "toefl")
-
-        # If english_source_url was a domestic-only course page that got rejected, clear course-level domestic English pull
         if raw_esrc and clean_esrc is None:
             ie = pt = tf = None
+        else:
+            ie, pt, tf = validate_and_reconcile_english(
+                r.get("ielts_score"),
+                r.get("pte_score"),
+                r.get("toefl_score"),
+                course_level=cl_exact,
+                course_name=cname_exact,
+                emeth=emeth,
+                esrc=clean_esrc or "",
+            )
 
         if (ie != r.get("ielts_score")) or (pt != r.get("pte_score")) or (tf != r.get("toefl_score")):
-            stats["english_strings_repaired"] += 1
-
-        esrc_low = (clean_esrc or "").lower()
-        if "policy" in emeth and any(
-            b in esrc_low for b in ("english-language-centre", "/elicos", "/blog/", "/news/", "/events/", "/staff/")
-        ):
-            ie = pt = tf = None
-            stats["elicos_or_low_degree_ielts_cleared"] += 1
-
-        if ie:
-            m_sc = re.search(r"\b([45678](?:\.[05])?)\b", ie)
-            if m_sc:
-                sc = float(m_sc.group(1))
-                cname_str = (r.get("course_name") or "").strip()
-                if ("masters" in lvl or "doctoral" in lvl) and sc < 6.0:
-                    ie = pt = tf = None
-                    stats["elicos_or_low_degree_ielts_cleared"] += 1
-                elif "bachelor" in lvl and sc < 5.5:
-                    ie = pt = tf = None
-                    stats["elicos_or_low_degree_ielts_cleared"] += 1
-                elif "policy" in emeth and sc < 7.0 and re.match(
-                    r"^(?:bachelor|diploma)\s+of\s+(?:nursing|midwifery)\b", cname_str, re.I
-                ):
-                    ie = pt = tf = None
-                    stats["elicos_or_low_degree_ielts_cleared"] += 1
+            if r.get("ielts_score") and ie is None:
+                stats["elicos_or_low_degree_ielts_cleared"] += 1
+            else:
+                stats["english_strings_repaired"] += 1
 
         eng_html = rebuild_english_html(ie, pt, tf)
         esrc_out = (clean_esrc or clean_u) if eng_html else None
         emeth_out = emeth if eng_html else None
 
         old_entry = r.get("entry_requirements")
-        clean_entry = sanitize_entry_html(old_entry, eng_html)
+        clean_entry = sanitize_entry_html(
+            old_entry,
+            eng_html,
+            course_level=cl_exact,
+            course_name=cname_exact,
+            duration_weeks=wks,
+        )
+        if not _extract_academic_bullets_from_entry_html(clean_entry) and mc_clean_db_ent.get(ccode):
+            clean_entry = sanitize_entry_html(
+                mc_clean_db_ent[ccode],
+                eng_html,
+                course_level=cl_exact,
+                course_name=cname_exact,
+                duration_weeks=wks,
+            )
         if old_entry and clean_entry != old_entry:
             stats["domestic_contaminated_entry_cleaned"] += 1
 
@@ -857,26 +834,111 @@ def run_full_verification(run_live_playwright: bool = True) -> dict:
         ),
         "contradictory_ielts_subband_gt_overall": sum(
             1 for c in courses
-            if c.get("ielts_requirement")
-            and len(re.findall(r"\b([45678](?:\.[05])?)\b", c["ielts_requirement"])) >= 2
-            and float(re.findall(r"\b([45678](?:\.[05])?)\b", c["ielts_requirement"])[1]) > float(re.findall(r"\b([45678](?:\.[05])?)\b", c["ielts_requirement"])[0])
+            if c.get("ielts_requirement") and has_contradictory_ielts_subband(c["ielts_requirement"])
+        ),
+        "chopped_decimal_subband_in_ielts": sum(
+            1 for c in courses
+            if c.get("ielts_requirement") and has_chopped_decimal_subband(c["ielts_requirement"])
         ),
         "cross_test_bleed_in_pte_toefl": sum(
             1 for c in courses
             if bool(re.search(r"\b(pte|ielts)\b", c.get("toefl_requirement") or "", re.I))
             or bool(re.search(r"\b(toefl|ielts)\b", c.get("pte_requirement") or "", re.I))
         ),
+        "contradictory_ielts_pte_toefl_concordance": sum(
+            1 for c in courses
+            if reconcile_test_concordance(
+                c.get("ielts_requirement") or None,
+                c.get("pte_requirement") or None,
+                c.get("toefl_requirement") or None,
+            )
+            != (
+                c.get("ielts_requirement") or None,
+                c.get("pte_requirement") or None,
+                c.get("toefl_requirement") or None,
+            )
+        ),
         "low_ielts_on_bachelor_masters_phd": sum(
             1 for c in courses
             if c.get("ielts_requirement")
-            and (
-                (("masters" in c["course_level"].lower() or "doctoral" in c["course_level"].lower()) and float(re.search(r"\b([45678](?:\.[05])?)\b", c["ielts_requirement"]).group(1)) < 6.0)
-                or ("bachelor" in c["course_level"].lower() and float(re.search(r"\b([45678](?:\.[05])?)\b", c["ielts_requirement"]).group(1)) < 5.5)
+            and ("bachelor" in c["course_level"].lower() or "masters" in c["course_level"].lower() or "doctoral" in c["course_level"].lower())
+            and float(IELTS_BAND_NUM_RE.search(c["ielts_requirement"]).group(1)) < 6.0
+        ),
+        "invalid_nursing_teaching_vet_or_school_english_bounds": sum(
+            1 for c in courses
+            if (c.get("ielts_requirement") or c.get("pte_requirement") or c.get("toefl_requirement"))
+            and validate_and_reconcile_english(
+                c.get("ielts_requirement") or None,
+                c.get("pte_requirement") or None,
+                c.get("toefl_requirement") or None,
+                course_level=c.get("course_level") or "",
+                course_name=c.get("course_name") or "",
+                emeth=c.get("english_method") or "",
+                esrc=c.get("english_source_url") or "",
+            )
+            != (
+                c.get("ielts_requirement") or None,
+                c.get("pte_requirement") or None,
+                c.get("toefl_requirement") or None,
             )
         ),
         "empty_dot_or_fluff_entry_requirements": sum(
             1 for c in courses
-            if c.get("new_entry_requirements_html") and not REAL_REQ_KEYWORDS.search(c["new_entry_requirements_html"])
+            if c.get("new_entry_requirements_html")
+            and not (
+                "English Language Requirements" in c["new_entry_requirements_html"]
+                or bool(_extract_academic_bullets_from_entry_html(c["new_entry_requirements_html"]))
+            )
+        ),
+        "bare_nav_or_predicateless_academic_bullets": sum(
+            1 for c in courses
+            for b in _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+            if not ENTRY_REQUIREMENT_PREDICATE_RE.search(b) or not SUBSTANTIVE_REQ_CONCEPT_RE.search(b)
+        ),
+        "marketing_pathway_fee_testimonial_or_table_row_in_academic": sum(
+            1 for c in courses
+            for b in _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+            if bool(NON_ENTRY_NOISE_RE.search(b))
+        ),
+        "accordion_heading_or_country_row_in_academic": sum(
+            1 for c in courses
+            for b in _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+            if bool(ACCORDION_HEADING_ONLY_RE.search(b)) or bool(COUNTRY_CERT_ROW_RE.search(b))
+        ),
+        "truncated_dangling_end_or_lowercase_academic_bullets": sum(
+            1 for c in courses
+            for b in _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+            if (not b[0].isupper() and not b[0].isdigit())
+            or bool(DANGLING_END_RE.search(b.rstrip(" .!,;*–—-")))
+            or b.count("(") != b.count(")")
+        ),
+        "cross_level_incompatible_academic_bullets": sum(
+            1 for c in courses
+            for b in _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+            if not is_bullet_compatible_with_level(
+                b,
+                c.get("course_level") or "",
+                c.get("course_name") or "",
+                c.get("duration_weeks"),
+            )
+        ),
+        "mixed_ug_and_pg_bullets_on_single_course": sum(
+            1 for c in courses
+            if filter_consistent_bullets(
+                _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html")),
+                c.get("course_level") or "",
+            )
+            != _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+        ),
+        "other_course_exception_leaked_into_academic_bullets": sum(
+            1 for c in courses
+            for b in _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+            if _violates_other_course_exception(b, c.get("course_name") or "")
+        ),
+        "domestic_state_cert_vce_hsc_qce_without_intl_equiv": sum(
+            1 for c in courses
+            for b in _extract_academic_bullets_from_entry_html(c.get("new_entry_requirements_html"))
+            if DOMESTIC_STATE_CERT_OR_RANK_RE.search(b) and not INTL_EQUIV_CONTEXT_RE.search(b)
         ),
         "placeholder_or_non_admissions_contact_emails": sum(
             1 for p in provs if p.get("new_contact_email") and bool(BAD_EMAIL_PATTERNS.search(p["new_contact_email"]))

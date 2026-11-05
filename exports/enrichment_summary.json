@@ -11,12 +11,12 @@
     "courses_last_modified": "2026-11-02T08:03:13.668673",
     "synced_at": "2026-11-04T17:42:20+10:00"
   },
-  "extraction_date": "2026-11-05",
+  "extraction_date": "2026-11-06",
   "extraction_window_local": {
     "started_at": "2026-11-02 12:17:15",
-    "completed_at": "2026-11-05 12:31:38"
+    "completed_at": "2026-11-06 02:11:44"
   },
-  "exported_at": "2026-11-05T12:35:16+10:00",
+  "exported_at": "2026-11-06T02:28:12+10:00",
   "providers_total_cricos": 1543,
   "providers_existing_db_updated": 772,
   "providers_new_cricos_inserted": 771,
@@ -37,8 +37,8 @@
     "total_course_duration": 25193,
     "apply_form": 14507,
     "course_description": 18560,
-    "entry_requirements": 20445,
-    "english_requirements": 14824,
+    "entry_requirements": 17364,
+    "english_requirements": 14298,
     "onshore_tuition_fee_distinct_promo": 5,
     "enrolment_fee": 3975,
     "materials_fee": 1152,
@@ -51,10 +51,11 @@
     "exports/review_courses_international_verified.csv",
     "exports/review_courses_international_part1.jsonl",
     "exports/review_courses_international_part2.jsonl",
-    "exports/review_courses_international_part3.jsonl",
     "exports/review_scholarships_international.csv",
     "exports/review_scholarships_international.json",
     "exports/review_repaired_cricos_codes.csv",
-    "exports/review_expired_courses.csv"
+    "exports/review_expired_courses.csv",
+    "exports/review_locations_international.csv",
+    "exports/review_course_locations_international.csv"
   ]
 }

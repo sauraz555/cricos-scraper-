@@ -52,6 +52,43 @@ def is_shallow_url(u: str | None, repeated_urls: set[str] | None = None) -> bool
         return True
 
 
+def clean_intake_string(raw: str | None) -> str:
+    if not raw:
+        return ""
+    s = str(raw).strip()
+    if not s:
+        return ""
+    # Split top-level semicolon-delimited segments without breaking parentheses like "(23 Feb, 2026)"
+    if ";" in s:
+        raw_parts = [seg.strip() for seg in s.split(";") if seg.strip()]
+        # If string was previously clipped near 250 chars, drop trailing incomplete fragment
+        if len(s) >= 245 and len(raw_parts) > 1:
+            last = raw_parts[-1]
+            if (
+                len(last) <= 6
+                or last.count("(") > last.count(")")
+                or re.search(r",\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$", last, re.I)
+                or re.match(r"^(S|Se|Sem|Seme|Semes|Semest|T|Te|Ter|Tri|Trim|F|Fe|Feb|J|Ju|Jul)$", last, re.I)
+            ):
+                raw_parts = raw_parts[:-1]
+        seen = set()
+        deduped = []
+        for seg in raw_parts:
+            key = re.sub(r"\s+", " ", seg).strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(re.sub(r"\s+", " ", seg).strip())
+        # Drop segments that are strict substrings of an earlier/longer segment (e.g. "Semester 1" vs "Semester 1, Semester 2")
+        filtered = []
+        for idx, seg in enumerate(deduped):
+            low = seg.lower()
+            if any(idx != j and low in other.lower() and len(other) > len(seg) for j, other in enumerate(deduped)):
+                continue
+            filtered.append(seg)
+        return "; ".join(filtered)
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def html_to_preview(s: str | None, max_len: int = 320) -> str:
     if not s:
         return ""
@@ -184,7 +221,7 @@ def export_all():
         in_db = int(r["in_existing_db"] or 0) == 1
 
         final_web = r["ep_website"] or r["cricos_website"] or r["db_website"] or ""
-        final_intake = r["ep_intake_date"] or r["db_intake_date"] or ""
+        final_intake = clean_intake_string(r["ep_intake_date"] or r["db_intake_date"] or "")
         final_logo = r["ep_provider_logo"] or r["db_provider_logo"] or ""
 
         sch_count = 0
@@ -204,6 +241,10 @@ def export_all():
                 "trading_name": r["trading_name"] or "",
                 "institution_type": r["institution_type"] or "",
                 "institution_capacity": r["institution_capacity"] or "",
+                "postal_address_line_1": r["postal_address_line_1"] or "",
+                "postal_address_line_2": r["postal_address_line_2"] or "",
+                "postal_address_line_3": r["postal_address_line_3"] or "",
+                "postal_address_line_4": r["postal_address_line_4"] or "",
                 "postal_address_city": r["postal_address_city"] or "",
                 "postal_address_state": r["postal_address_state"] or "",
                 "postal_address_postcode": r["postal_address_postcode"] or "",
@@ -334,7 +375,7 @@ def export_all():
         if assess_str:
             field_fill_counts["assessment_style"] += 1
 
-        intake_str = r["new_intake_dates"] or ""
+        intake_str = clean_intake_string(r["new_intake_dates"] or "")
         if intake_str:
             field_fill_counts["intakes"] += 1
 
@@ -452,6 +493,15 @@ def export_all():
     expired_rows = [dict(r) for r in conn.execute("SELECT * FROM db_expired_or_removed_courses ORDER BY cricos_provider_code, cricos_course_code")]
     exp_csv_path = safe_write_csv(os.path.join(EXPORT_DIR, "review_expired_courses.csv"), expired_rows)
 
+    # ------------------------------------------------------------------
+    # 5. CAMPUS LOCATIONS & COURSE-LOCATION MAPPINGS (Self-contained exports)
+    # ------------------------------------------------------------------
+    loc_rows = [dict(r) for r in conn.execute("SELECT * FROM master_locations ORDER BY cricos_provider_code, location_name")]
+    loc_csv_path = safe_write_csv(os.path.join(EXPORT_DIR, "review_locations_international.csv"), loc_rows)
+
+    cloc_rows = [dict(r) for r in conn.execute("SELECT * FROM master_course_locations ORDER BY cricos_course_code, location_name")]
+    cloc_csv_path = safe_write_csv(os.path.join(EXPORT_DIR, "review_course_locations_international.csv"), cloc_rows)
+
     min_ts, max_ts = conn.execute(
         """
         SELECT MIN(ts), MAX(ts) FROM (
@@ -474,6 +524,8 @@ def export_all():
         os.path.relpath(sch_json_path, PROJECT_DIR).replace("\\", "/"),
         os.path.relpath(rep_csv_path, PROJECT_DIR).replace("\\", "/"),
         os.path.relpath(exp_csv_path, PROJECT_DIR).replace("\\", "/"),
+        os.path.relpath(loc_csv_path, PROJECT_DIR).replace("\\", "/"),
+        os.path.relpath(cloc_csv_path, PROJECT_DIR).replace("\\", "/"),
     ]
 
     summary = {

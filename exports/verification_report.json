@@ -1,6 +1,6 @@
 {
-  "extraction_date": "2026-11-05",
-  "verified_at": "2026-11-05T12:32:55+10:00",
+  "extraction_date": "2026-11-06",
+  "verified_at": "2026-11-06T02:28:27+10:00",
   "total_providers_verified": 1543,
   "total_active_courses_verified": 25199,
   "total_international_scholarships_verified": 995,
@@ -12,9 +12,9 @@
     "dummy_or_placeholder_tuition_fees_cleared": 0,
     "live_verified_onshore_fee_synced": 0,
     "outlier_enrol_materials_removed": 0,
-    "english_strings_repaired": 0,
-    "elicos_or_low_degree_ielts_cleared": 4,
-    "domestic_contaminated_entry_cleaned": 44,
+    "english_strings_repaired": 6,
+    "elicos_or_low_degree_ielts_cleared": 23,
+    "domestic_contaminated_entry_cleaned": 29,
     "domestic_contaminated_desc_cleaned": 0,
     "domestic_only_scholarships_excluded": 0,
     "non_exact_match_methods_reset": 0
@@ -38,9 +38,20 @@
     "broken_parens_or_dup_prefix_in_english": 0,
     "atar_or_heading_bleed_in_english_scores": 0,
     "contradictory_ielts_subband_gt_overall": 0,
+    "chopped_decimal_subband_in_ielts": 0,
     "cross_test_bleed_in_pte_toefl": 0,
+    "contradictory_ielts_pte_toefl_concordance": 0,
     "low_ielts_on_bachelor_masters_phd": 0,
+    "invalid_nursing_teaching_vet_or_school_english_bounds": 0,
     "empty_dot_or_fluff_entry_requirements": 0,
+    "bare_nav_or_predicateless_academic_bullets": 0,
+    "marketing_pathway_fee_testimonial_or_table_row_in_academic": 0,
+    "accordion_heading_or_country_row_in_academic": 0,
+    "truncated_dangling_end_or_lowercase_academic_bullets": 0,
+    "cross_level_incompatible_academic_bullets": 0,
+    "mixed_ug_and_pg_bullets_on_single_course": 0,
+    "other_course_exception_leaked_into_academic_bullets": 0,
+    "domestic_state_cert_vce_hsc_qce_without_intl_equiv": 0,
     "placeholder_or_non_admissions_contact_emails": 0,
     "domestic_or_indigenous_or_expired_scholarships": 0
   },
@@ -102,7 +113,7 @@
       "course_title_token_overlap": 1.0,
       "offshore_tuition_fee": 112800.0,
       "onshore_tuition_fee": "",
-      "ielts_requirement": "IELTS of 6.5, with no score below a 6",
+      "ielts_requirement": "IELTS of 6.5, with no score below a 6.0, in each of the individual skill areas",
       "match_method": "acir_exact_cricos"
     },
     {
@@ -153,16 +164,16 @@
     {
       "cricos_provider_code": "00117J",
       "institution_name": "James Cook University",
-      "cricos_course_code": "0100451",
-      "course_name": "Diploma of Information Technology [Pathway]",
-      "checked_url": "https://www.jcu.edu.au/courses/diploma-of-information-technology-pathway?international=",
+      "cricos_course_code": "0100968",
+      "course_name": "Master of Philosophy (Indigenous)",
+      "checked_url": "https://www.jcu.edu.au/courses/master-of-philosophy?international=",
       "http_status": 200,
-      "page_title": "Study a Diploma of Information Technology [Pathway] - JCU Australia",
-      "exact_7char_cricos_on_live_page": true,
+      "page_title": "Study a Master of Philosophy Degree in Queensland - JCU Australia",
+      "exact_7char_cricos_on_live_page": false,
       "course_title_token_overlap": 1.0,
-      "offshore_tuition_fee": 29153.12,
+      "offshore_tuition_fee": 75273.39,
       "onshore_tuition_fee": "",
-      "ielts_requirement": "IELTS 7",
+      "ielts_requirement": "IELTS Overall minimum score: 6.5",
       "match_method": "acir_exact_cricos"
     },
     {
@@ -177,7 +188,7 @@
       "course_title_token_overlap": 1.0,
       "offshore_tuition_fee": 158950.0,
       "onshore_tuition_fee": "",
-      "ielts_requirement": "IELTS: Overall score or 6.5 with no band less than 6",
+      "ielts_requirement": "IELTS (or equivalent): Overall score or 6.5 (with no band less than 6.0 in Listening, Reading, Writing and Speaking)",
       "match_method": "acir_exact_cricos"
     },
     {
@@ -222,7 +233,7 @@
       "course_title_token_overlap": 1.0,
       "offshore_tuition_fee": 119700.0,
       "onshore_tuition_fee": "",
-      "ielts_requirement": "IELTS Academic score of 6.0 overall, with no band score below 6",
+      "ielts_requirement": "IELTS Academic score of 6.0 overall, with no band score below 6.0 (or equivalent)",
       "match_method": "acir_exact_cricos"
     }
   ]

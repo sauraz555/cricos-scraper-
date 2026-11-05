@@ -28,6 +28,14 @@ import httpx
 from playwright.async_api import async_playwright, Browser, BrowserContext
 from selectolax.parser import HTMLParser
 
+from entry_english_rules import (
+    DECOMPOSE_NAV_SELECTOR,
+    extract_academic_entry_html_v2,
+    extract_english_tests_v2,
+    html_to_clean_texts,
+    parse_html_english_tables,
+)
+
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(PROJECT_DIR, "data", "dashboard_mirror.sqlite")
 
@@ -53,145 +61,16 @@ def ensure_english_columns(conn: sqlite3.Connection):
     conn.commit()
 
 
-def parse_html_english_tables(html_str: str | None) -> str:
-    """
-    Convert multi-column HTML English/Entry tables (where 'IELTS', 'PTE', 'TOEFL' are in <th>
-    headers and numeric scores like '6.5 (no band < 6.0)' are in <td> rows) into explicit
-    labeled lines so level-aware extraction captures every table cell accurately!
-    """
-    if not html_str:
-        return ""
-    tree = HTMLParser(html_str)
-    synthesized_lines = []
-    for table in tree.css("table"):
-        rows = table.css("tr")
-        if len(rows) < 2:
-            continue
-        headers = [re.sub(r"\s+", " ", c.text(strip=True)).lower() for c in rows[0].css("th, td")]
-        if not any(any(k in h for k in ("ielts", "pte", "pearson", "toefl", "english")) for h in headers):
-            continue
-
-        col_map = {}
-        for idx, h in enumerate(headers):
-            if "ielts" in h:
-                col_map["IELTS Academic"] = idx
-            elif "pte" in h or "pearson" in h:
-                col_map["PTE Academic"] = idx
-            elif "toefl" in h:
-                col_map["TOEFL iBT"] = idx
-            elif "cambridge" in h or "c1" in h or "cae" in h:
-                col_map["Cambridge C1"] = idx
-            elif "oet" in h:
-                col_map["OET"] = idx
-
-        if not col_map:
-            continue
-
-        for r in rows[1:]:
-            cells = [re.sub(r"\s+", " ", c.text(strip=True)) for c in r.css("td, th")]
-            if not cells:
-                continue
-            row_label = cells[0] if 0 not in col_map.values() else "Standard"
-            parts = []
-            for label, cidx in col_map.items():
-                if cidx < len(cells) and cells[cidx] and cells[cidx] not in ("-", "N/A", "n/a"):
-                    parts.append(f"{label}: {cells[cidx]}")
-            if parts:
-                synthesized_lines.append(f"{row_label} — " + "; ".join(parts) + ".")
-    return "\n".join(synthesized_lines)
-
-
 def clean_html_to_text(h: str | None) -> str:
-    if not h:
-        return ""
-    table_lines = parse_html_english_tables(h)
-    t = HTMLParser(h).text(separator="\n", strip=True)
-    base = re.sub(r"[ \t]+", " ", t)
-    return (table_lines + "\n" + base).strip() if table_lines else base
+    eng_txt, _ = html_to_clean_texts(h)
+    return eng_txt
 
 
 def extract_english_tests(text: str) -> dict:
     """
-    Extract structured IELTS, PTE, TOEFL, OET, Cambridge requirements from text.
-    Strictly validates score ranges so years/page numbers/fees are never mistaken for test scores!
+    Extract structured IELTS, PTE, TOEFL requirements from text using decimal-preserving v2 rules.
     """
-    res = {
-        "ielts": None,
-        "pte": None,
-        "toefl": None,
-        "other": None,
-    }
-    if not text:
-        return res
-
-    flat = re.sub(r"\s+", " ", text)
-
-    # 1. IELTS Academic (valid scores: 4.5 to 8.5 in 0.5 increments)
-    ielts_patterns = [
-        r"IELTS(?:\s*\(Academic\)|\s+Academic)?[^.;\n]{0,65}?\b([45678]\.[05]|[5678])\b(?:\s*overall)?(?:\s*[\(,][^.;\n\)]{0,95}\b(?:band|sub-?score|section|listening|writing|speaking|reading|less than|minimum|below|each)\b[^.;\n\)]{0,60}[\)]?)?",
-        r"\b([45678]\.[05])\s+IELTS\b[^.;\n]{0,80}",
-    ]
-    for pat in ielts_patterns:
-        m = re.search(pat, flat, re.I)
-        if m:
-            score_val = float(m.group(1))
-            if 4.5 <= score_val <= 8.5:
-                seg = m.group(0).strip(" ,;:-.")
-                # Also look 80 chars ahead for band minimum if not captured inside m.group(0)
-                tail = flat[m.end() : m.end() + 95]
-                band_m = re.search(
-                    r"^[\s,;:\(\-]*(?:with\s+)?(?:no\s+(?:individual\s+)?band\s+(?:score\s+)?(?:less\s+than|below)|minimum\s+(?:of\s+)?[45678](?:\.[05])?\s+in\s+each\s+(?:band|subtest|component)|minimum\s+band\s*(?:score)?\s*(?:of)?)\s*[45678](?:\.[05])?[^\.;\n]{0,45}",
-                    tail,
-                    re.I,
-                )
-                if band_m and "band" not in seg.lower() and "each" not in seg.lower():
-                    seg = f"{seg} {band_m.group(0).strip(' ,;:-.')}"
-                res["ielts"] = seg[:220]
-                break
-
-    # 2. PTE Academic (valid scores: 36 to 86)
-    pte_m = re.search(
-        r"(?:PTE(?:\s+Academic)?|Pearson\s+Test\s+of\s+English)[^.;\n\d]{0,45}?\b([345678]\d)\b(?:\s*overall)?(?:\s*[\(,][^.;\n\)]{0,85}[\)]?)?",
-        flat,
-        re.I,
-    )
-    if pte_m:
-        val = int(pte_m.group(1))
-        if 36 <= val <= 86:
-            seg = pte_m.group(0).strip(" ,;:-.")
-            tail = flat[pte_m.end() : pte_m.end() + 80]
-            sub_m = re.search(
-                r"^[\s,;:\(\-]*(?:with\s+)?(?:no\s+(?:communicative\s+)?(?:skill|band|score)\s+(?:less\s+than|below)|minimum\s+of\s+\d{2})[^\.;\n]{0,40}",
-                tail,
-                re.I,
-            )
-            if sub_m and "skill" not in seg.lower() and "less than" not in seg.lower():
-                seg = f"{seg} {sub_m.group(0).strip(' ,;:-.')}"
-            res["pte"] = seg[:200]
-
-    # 3. TOEFL iBT (valid scores: 35 to 115)
-    toefl_m = re.search(
-        r"TOEFL(?:\s*iBT|\s*\(iBT\)|\s+Internet[- ]based)?[^.;\n\d]{0,45}?\b(1[01]\d|[456789]\d)\b(?:\s*overall)?(?:\s*[\(,][^.;\n\)]{0,90}[\)]?)?",
-        flat,
-        re.I,
-    )
-    if toefl_m:
-        val = int(toefl_m.group(1))
-        if 35 <= val <= 115:
-            res["toefl"] = toefl_m.group(0).strip(" ,;:-.")[:200]
-
-    # 4. OET / Cambridge C1 / CAE
-    other_parts = []
-    cae_m = re.search(r"(?:Cambridge|CAE|C1\s+Advanced)[^.;\n\d]{0,40}?\b(1[56789]\d|20\d)\b", flat, re.I)
-    if cae_m:
-        other_parts.append(cae_m.group(0).strip(" ,;:-."))
-    oet_m = re.search(r"\bOET\b[^.;\n]{0,65}?(?:minimum\s+of\s+[AB]|grade\s+[AB]|[34]\d0)", flat, re.I)
-    if oet_m:
-        other_parts.append(oet_m.group(0).strip(" ,;:-."))
-    if other_parts:
-        res["other"] = "; ".join(other_parts)[:200]
-
-    return res
+    return extract_english_tests_v2(text)
 
 
 def build_english_html(eng: dict) -> str | None:
@@ -209,42 +88,19 @@ def build_english_html(eng: dict) -> str | None:
     return f"<h4>English Language Requirements (International Students)</h4><ul>{''.join(items)}</ul>"
 
 
-def extract_academic_entry_html(text: str, course_level: str = "") -> str | None:
-    """Extract clean International Student Academic Entry Requirements (stripping domestic ATAR/CSP noise)."""
-    if not text:
-        return None
-    lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.splitlines() if ln.strip()]
-    domestic_bad = re.compile(
-        r"\b(commonwealth supported place|hecs-help|fee-help|austudy|abstudy|centrelink|vtac|qtac|uac|satac|tisc|domestic applicants only)\b",
-        re.I,
+def extract_academic_entry_html(
+    text: str,
+    course_level: str = "",
+    course_name: str = "",
+    duration_weeks: int | None = None,
+) -> str | None:
+    """Extract clean, level-compatible International Student Academic Entry Requirements."""
+    return extract_academic_entry_html_v2(
+        text,
+        course_level=course_level,
+        course_name=course_name,
+        duration_weeks=duration_weeks,
     )
-    acad_good = re.compile(
-        r"\b(year\s*1[012]|bachelor|degree|diploma|certificate\s*(?:iii|iv|3|4)|aqf|equivalent\s+overseas|international\s+baccalaureate|work\s+experience|academic\s+requirement|completion\s+of|prerequisite|minimum\s+age|18\s+years|gpa|weighted\s+average\s+mark)\b",
-        re.I,
-    )
-
-    picked = []
-    for ln in lines:
-        if len(ln) < 25 or len(ln) > 380:
-            continue
-        if domestic_bad.search(ln) and "international" not in ln.lower() and "overseas" not in ln.lower():
-            continue
-        # Skip pure ATAR lines unless overseas equivalent is mentioned
-        if re.search(r"\bATAR\b", ln) and not re.search(r"equivalent|overseas|international|year\s*12|bachelor", ln, re.I):
-            continue
-        if acad_good.search(ln):
-            # Avoid duplicating pure IELTS lines here since English has its own section
-            if ln.lower().startswith(("ielts", "pte", "toefl")):
-                continue
-            if ln not in picked:
-                picked.append(ln)
-        if len(picked) >= 4:
-            break
-
-    if not picked:
-        return None
-    lis = "".join(f"<li>{html.escape(p)}</li>" for p in picked)
-    return f"<h4>Academic Entry Requirements (International Students)</h4><ul>{lis}</ul>"
 
 
 def combine_entry_and_english_html(acad_html: str | None, eng_html: str | None) -> str | None:
@@ -256,15 +112,17 @@ def combine_entry_and_english_html(acad_html: str | None, eng_html: str | None) 
 def bucket_for_course(course_level: str, course_name: str) -> str:
     cn = (course_name or "").lower()
     cl = (course_level or "").lower()
+    if "primary school" in cl or "junior secondary" in cl or "senior secondary" in cl:
+        return "school"
     if any(k in cn for k in ("nursing", "midwifery", "clinical psychology", "initial teacher", "teaching", "education (primary", "education (secondary", "law", "juris doctor", "medicine", "physiotherapy", "pharmacy", "social work")):
         return "high_prof"
-    if "doctoral" in cl or "doctor" in cn or "phd" in cn or "master" in cn and "research" in cn:
+    if "doctoral" in cl or "doctor" in cn or "phd" in cn or ("master" in cn and "research" in cn):
         return "research"
     if "master" in cl or "graduate" in cl or "postgraduate" in cl:
         return "postgrad"
     if "bachelor" in cl or "associate degree" in cl or "undergraduate" in cl:
         return "undergrad"
-    if "diploma" in cl or "certificate" in cl:
+    if "diploma" in cl or "certificate" in cl or "vocational" in cl:
         return "vet_diploma"
     if "elicos" in cl or "english" in cn or "non aqf" in cl or "foundation" in cl:
         return "elicos_foundation"
@@ -274,40 +132,56 @@ def bucket_for_course(course_level: str, course_name: str) -> str:
 def parse_policy_page_by_level(text: str) -> dict[str, dict]:
     """
     Splits an institution's English & Entry Requirements policy page into chunks
-    and maps IELTS/PTE/TOEFL + Academic requirements to level buckets
-    (vet_diploma, undergrad, postgrad, research, high_prof, general).
+    and maps IELTS/PTE/TOEFL + level-compatible Academic requirements to level buckets
+    (NEVER copying `default_acad` across incompatible degree levels!).
     """
     out: dict[str, dict] = {}
     if not text:
         return out
 
-    # Overall page default
-    default_eng = extract_english_tests(text)
-    default_acad = extract_academic_entry_html(text)
-    if any(default_eng.values()) or default_acad:
-        out["general"] = {"eng": default_eng, "acad": default_acad}
+    default_eng = extract_english_tests_v2(text)
+    if any(default_eng.values()):
+        out["general"] = {"eng": default_eng, "acad": None}
 
-    # Split into paragraphs / sections (~600 char windows around level headings)
-    level_keywords = {
-        "vet_diploma": r"\b(diploma|advanced\s+diploma|certificate\s+(?:iii|iv)|vet\s+courses?|vocational)\b",
-        "undergrad": r"\b(undergraduate|bachelor(?:'s)?\s+degrees?|associate\s+degree)\b",
-        "postgrad": r"\b(postgraduate|master(?:'s)?(?:\s+by\s+coursework)?|graduate\s+diploma|graduate\s+certificate)\b",
-        "research": r"\b(higher\s+degree\s+by\s+research|hdr|doctor\s+of\s+philosophy|phd|master\s+of\s+philosophy)\b",
-        "high_prof": r"\b(nursing|teaching|initial\s+teacher\s+education|social\s+work|law|juris\s+doctor|medicine|psychology)\b",
+    level_specs = {
+        "vet_diploma": (
+            r"\b(diploma|advanced\s+diploma|certificate\s+(?:iii|iv)|vet\s+courses?|vocational)\b",
+            "Diploma",
+        ),
+        "undergrad": (
+            r"\b(undergraduate|bachelor(?:'s)?\s+degrees?|associate\s+degree)\b",
+            "Bachelor Degree",
+        ),
+        "postgrad": (
+            r"\b(postgraduate|master(?:'s)?(?:\s+by\s+coursework)?|graduate\s+diploma|graduate\s+certificate)\b",
+            "Masters Degree (Coursework)",
+        ),
+        "research": (
+            r"\b(higher\s+degree\s+by\s+research|hdr|doctor\s+of\s+philosophy|phd|master\s+of\s+philosophy)\b",
+            "Doctoral Degree",
+        ),
+        "high_prof": (
+            r"\b(nursing|teaching|initial\s+teacher\s+education|social\s+work|law|juris\s+doctor|medicine|psychology)\b",
+            "",
+        ),
     }
 
-    for bkt, pat in level_keywords.items():
+    for bkt, (pat, rep_lvl) in level_specs.items():
         for m in re.finditer(pat, text, re.I):
-            window = text[max(0, m.start() - 60) : m.end() + 550]
-            eng = extract_english_tests(window)
-            acad = extract_academic_entry_html(window)
-            if any(eng.values()):
-                # Merge missing PTE/TOEFL from general if same IELTS or general table
+            window = text[max(0, m.start() - 60) : m.end() + 650]
+            eng = extract_english_tests_v2(window)
+            # Strip synthesized table lines from window before academic extraction
+            acad_win = "\n".join(
+                ln for ln in window.splitlines() if " — IELTS" not in ln and " — PTE" not in ln and " — TOEFL" not in ln
+            )
+            acad = extract_academic_entry_html_v2(acad_win, course_level=rep_lvl) if rep_lvl else None
+            if any(eng.values()) or acad:
                 merged_eng = dict(eng)
-                for k in ("pte", "toefl", "other"):
-                    if not merged_eng.get(k) and default_eng.get(k) and merged_eng.get("ielts") == default_eng.get("ielts"):
-                        merged_eng[k] = default_eng[k]
-                out[bkt] = {"eng": merged_eng, "acad": acad or default_acad}
+                if any(merged_eng.values()):
+                    for k in ("pte", "toefl", "other"):
+                        if not merged_eng.get(k) and default_eng.get(k) and merged_eng.get("ielts") == default_eng.get("ielts"):
+                            merged_eng[k] = default_eng[k]
+                out[bkt] = {"eng": merged_eng, "acad": acad}
                 break
 
     return out
@@ -368,13 +242,7 @@ class FastPolicyAndCourseFetcher:
                     return None, None, url
                 if r.status_code == 200 and "text/html" in r.headers.get("content-type", "text/html"):
                     h = r.text
-                    tbl_txt = parse_html_english_tables(h)
-                    tree = HTMLParser(h)
-                    for tag in tree.css("script, style, noscript"):
-                        tag.decompose()
-                    txt = tree.body.text(separator="\n", strip=True) if tree.body else ""
-                    if tbl_txt:
-                        txt = tbl_txt + "\n" + txt
+                    txt, _ = html_to_clean_texts(h)
                     if len(txt) >= 500 and "Just a moment..." not in txt:
                         # If HTTP already contains IELTS or PTE or Academic requirements, return immediately (0.15s!)
                         if re.search(r"\b(IELTS|PTE|TOEFL|Year\s*12|entry\s+requirements)\b", txt, re.I):
@@ -412,10 +280,7 @@ class FastPolicyAndCourseFetcher:
                             except Exception:
                                 pass
                 h = await page.content()
-                tbl_txt = parse_html_english_tables(h)
-                txt = await page.inner_text("body")
-                if tbl_txt:
-                    txt = tbl_txt + "\n" + txt
+                txt, _ = html_to_clean_texts(h)
                 return h, txt, page.url
             except Exception:
                 return None, None, url
